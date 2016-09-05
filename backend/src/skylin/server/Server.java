@@ -71,7 +71,7 @@ public class Server
 		SkylinServletContext servletContext = new SkylinServletContext();
 		servletContext.params = customParams;
 		bl.contextInitialized(new ServletContextEvent(servletContext));
-		
+		/*
 		if (System.getProperty("os.name") != null && System.getProperty("os.name").toLowerCase().contains("windows"))
 		{
 			try
@@ -111,6 +111,7 @@ public class Server
 				e.printStackTrace();
 			}
 		}
+		*/
 		System.out.println("Server is ready. Startup time: " + (System.currentTimeMillis()-startTime)+"ms");
 	}
 	
