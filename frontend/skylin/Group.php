@@ -9,11 +9,29 @@
 		private $afterClickE;
 		private $clickable;
 		
-		function render($context = null)
+		private $otherContext;
+		
+		function renderInOtherContext($c)
 		{
-			if (is_null($context))
+			$this->otherContext = $c;
+			return $this->renderGroup();
+		}
+		
+		function render()
+		{
+			return $this->renderGroup();
+		}
+		
+		function renderGroup()
+		{
+			if (is_null($this->otherContext))
 			{
 				$context = $this->getContext();
+			}
+			else
+			{
+				$context = $this->otherContext;
+				$this->otherContext = null;
 			}
 			/*
 			if (function_exists ('java_is_null') && java_is_null($this->c('row')))
@@ -77,6 +95,7 @@
 			{
 				$this->dropChildren();
 				$this->add($com);
+				return $com;
 			}
 		}
 		
@@ -88,6 +107,7 @@
 		function setText($t)
 		{
 			$this->text = $t;
+			return $this;
 		}
 		
 		function setInnerMargin($m)
@@ -98,11 +118,13 @@
 				$m = $m.'px';
 			}
 			$this->innerMargin = $m;
+			return $this;
 		}
 		
 		function span()
 		{
 			$this->type = 'span';
+			return $this;
 		}
 		
 		function remove($id)
@@ -137,6 +159,7 @@
 		{
 			$this->clickable = true;
 			$this->afterClickE = $actionE;
+			return $this;
 		}
 		
 		function click($id)

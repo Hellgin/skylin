@@ -24,7 +24,7 @@ class Toolbar extends Component
 	    	}
 	    	else
 	    	{
-	    		$ret = $ret.'<button class="nav_ul_li_button"><img src="applications/CommonImages/black_arrow_down.png">'.$tool.'</button>';
+	    		$ret = $ret.'<button class="nav_ul_li_button"><img src="skylin/images/black_arrow_down.png">'.$tool.'</button>';
 	    		$ret = $ret.'<ul class="nav_ul_li_ul">';
 	    		foreach($toolItems as $toolItem => $action)
 	    		{

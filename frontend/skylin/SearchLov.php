@@ -3,6 +3,7 @@
     class SearchLov extends Lov
     {
     	private $doInListValidationE = 'return $this->getLov()->doInListValidation();';
+    	private $textStyleE;
     	
 		function render()
 		{
@@ -19,6 +20,10 @@
 		
 		function getStyle()
 		{
+			if ($this->textStyleE != null)
+			{
+				return eval($this->textStyleE);
+			}
 			return '';
 		}
 		
@@ -38,7 +43,7 @@
 			foreach($lov->getUserFilterColumns() as $filter)
 			{
 				$table = $table.'<div class="table-row" style="border-style:none">';
-				$table = $table.'<div class="col" style="border-style:none;font-size:0.85em"><div>'.$filter->getFilterLabel().'</div></div>';
+				$table = $table.'<div class="col" style="border-style:none;font-size:0.85em;white-space:nowrap"><div>'.$filter->getFilterLabel().'</div></div>';
 				$table = $table.'<div class="col" style="width:100%;padding-left: 5;border-style:none;font-size:0.85em"><input class ="searchLovFilter" filter="'.$filter->getFilterColumn().'" style="width:100%;"></div>';
 				$table = $table.'</div>';
 			}
@@ -86,8 +91,9 @@
 			Response::addMessage('setdiv',$this->getFullId().'_lov-'.$this->renderInContext($this->getContext()));
 		}
 		
-		function valueChange($linkId,$value)
+		function valueChange_step1($linkId,$value)
 		{
+			/*
 			if (eval($this->doInListValidationE))
 			{
 				$this->setRow($linkId);
@@ -111,16 +117,66 @@
 			{
 				parent::valueChange($linkId,$value);
 			}
+			*/
+			
+			$this->setRow($linkId);
+			if (eval($this->doInListValidationE))
+			{
+				$lov = $this->getLov();
+				$toBeSelected = $lov->findRowByUserInput($this->c('col'),$value);
+				if (java_is_null($toBeSelected) && !(is_null($value) || strlen($value.'') == 0))
+				{
+					$this->setError('Value not in list',$this->getFullId());
+					return false;
+				}
+			}
+			
+			return parent::valueChange_step1($linkId,$value);
+		}
+		
+		
+		function selectRow($rowId,$lovRowId)
+		{
+			$_REQUEST['SKYLIN_LOV_ROW_SELECTED'] = true;
+			parent::selectRow($rowId,$lovRowId);
+		}
+		
+		function setError($result,$id)
+		{
+			if ($_REQUEST['SKYLIN_LOV_ROW_SELECTED'])
+			{
+				if ($result != null)
+				{
+					Response::error($result);
+				}
+			}
+			else
+			{
+				parent::setError($result,$id);
+			}
 		}
 		
 		function setInListValidation($v)
 		{
 			$this->doInListValidationE = 'return ' || $v || ';';
+			return $this;
 		}
 		
 		function setInListValidationE($v)
 		{
 			$this->doInListValidationE = $v;
+			return $this;
+		}		
+
+		function setTextStyle($s)
+		{
+			$this->textStyleE = 'return "'.$s.'";';
+			return $this;
+		}
+		function setTextStyleE($s)
+		{
+			$this->textStyleE = $s;
+			return $this;
 		}
 	}
 	
@@ -142,5 +198,4 @@
 		$com->refresh();
 		Response::send();
 	}
-	
 ?>

@@ -2,8 +2,7 @@
 	require_once "Component.php";
 	class TabStrip extends Component
 	{
-		//private $tabs = array();
-		private $currentTabIndex = 0;
+		private $currentTab;
 		private $mode = 1;
 		private $tabcreateSeqNo = 0;
 		private $tabLookupBySeq = array();
@@ -16,7 +15,7 @@
 			$childrenContext['parent'] = $this;
 			foreach($this->tabLookupBySeq as $tab)
 			{
-				if ($i == $this->currentTabIndex)
+				if ($this->currentTab == $tab)
 				{
 					$extra = $extra.'checked="checked"';
 				}
@@ -24,7 +23,7 @@
 				{
 					$extra = '';
 				}
-				if ($this->mode == 1 || $i == $this->currentTabIndex)
+				if ($this->mode == 1 || $this->currentTab == $tab)
 				{
 					$content = $tab->getContent()->renderInContext($childrenContext);
 				}
@@ -83,6 +82,13 @@
 		
 		function setTab($heading,$content)
 		{
+			
+			$old = $this->getTabContent($heading);
+			if ($old != null)
+			{
+				$old->destroy();
+			}
+			
 			if (!is_null($this->a()))//not 100% sure this check is needed here. test later.
 			{
 				$childrenContext = $this->getContext();
@@ -119,28 +125,14 @@
 			$tab->setHeading($heading);
 			$tab->setContent($content);
 			
-		
-			//$existingTab = !is_null($this->tabs[$index]);
-			//$this->tabs[$index] = $tab;
-			
-			
 			if (!is_null($this->a()))
 			{
-				Response::addMessage('setprop',$this->getFullId().'x'.str_replace(" ","_",$this->getTabAtIndex($this->currentTabIndex)->getSeqNo()).',checked,');
+				Response::addMessage('setprop',$this->getFullId().'x'.str_replace(" ","_",$this->currentTab->getSeqNo()).',checked,');
 			}
-			//$this->currentTabIndex = array_search($index,array_keys($this->tabs));
-			$this->currentTabIndex = array_search($tabSeq,array_keys($this->tabLookupBySeq));
-			/*
-			if (!is_null($this->a()))
-			{
-				$this->refresh();
-			}
-			*/
-			
+			$this->currentTab = $tab;
 			
 			if (!is_null($this->a()))
 			{
-				//$heading = str_replace(" ","_",$tab->getHeading());
 				$seq = $tab->getSeqNo();
 				$tabStripId = $this->getFullId();
 				if ($tab->getCloseable())
@@ -172,8 +164,8 @@
 					</li>';
 				if ($existingTab)
 				{
-					Response::addMessage('setparentdiv',$tabStripId.'x'.str_replace(" ","_",$this->getTabAtIndex($this->currentTabIndex)->getSeqNo()).'-'.$t);	
-					Response::addMessage('setprop',$this->getFullId().'x'.str_replace(" ","_",$this->getTabAtIndex($this->currentTabIndex)->getSeqNo()).',checked,checked');
+					Response::addMessage('setparentdiv',$tabStripId.'x'.str_replace(" ","_",$this->currentTab->getSeqNo()).'-'.$t);	
+					Response::addMessage('setprop',$this->getFullId().'x'.str_replace(" ","_",$this->currentTab->getSeqNo()).',checked,checked');
 				}
 				else 
 				{
@@ -193,49 +185,27 @@
 			return null;
 		}
 		
-		/*
-		function removeTab($heading)
+		function removeTabBySeq($seq)
 		{
-			unset($this->tabs[$heading]);
-		}
-		*/
-		
-		function removeTabAtIndex($index)
-		{
-			$index = $this->getTabIndexBySeq($index);
+			$tabToRemove = $this->tabLookupBySeq[$seq];
+			$index = $this->getTabIndexBySeq($seq);
 			
-			$this->getTabAtIndex($index)->getContent()->destroy();//temp. should be controlable by developer.
+			$tabToRemove->getContent()->destroy();//temp. should be controlable by developer.
 			
-			//out::println($this->getFullId().'x'.$this->getTabAtIndex($index)->getHeading().'-');
-			Response::addMessage('setparentdiv',$this->getFullId().'x'.str_replace(" ","_",$this->getTabAtIndex($index)->getSeqNo()).'-');
-			$i = 0;
-			foreach($this->tabLookupBySeq as $key => $tab)
-			{
-				if ($i == $index)
-				{
-					unset($this->tabLookupBySeq[$key]);
-				}
-				$i  = $i  + 1;
-			}
-			if ($this->currentTabIndex >= count($this->tabLookupBySeq) || $this->currentTabIndex > $index)
-			{
-				$this->currentTabIndex = $this->currentTabIndex - 1;
-			}
-			//$this->refresh();
-			
+			Response::addMessage('setparentdiv',$this->getFullId().'x'.str_replace(" ","_",$seq).'-');
 
-			Response::addMessage('setprop',$this->getFullId().'x'.str_replace(" ","_",$this->getTabAtIndex($this->currentTabIndex)->getSeqNo()).',checked,checked');
-			/*
-			$i = 0;
-			foreach($this->tabs as $tab)
+			unset($this->tabLookupBySeq[$seq]);
+
+			if ($tabToRemove == $this->currentTab)
 			{
-				if ($i > $index)
+				if ($index >= count($this->tabLookupBySeq))
 				{
-					Response::addMessage('setprop',$this->getFullId().'x'.$i.',id,'.$this->getFullId().'x'.($i-1));
+					$index = $index - 1;
 				}
-				$i = $i + 1;
+				$this->currentTab = $this->getTabAtIndex($index);
 			}
-			*/
+	
+			Response::addMessage('setprop',$this->getFullId().'x'.str_replace(" ","_",$this->currentTab->getSeqNo()).',checked,checked');
 		}
 		
 		function getTabIndex($heading)
@@ -282,9 +252,9 @@
 			return $this->tabLookupBySeq[$no];
 		}
 		
-		function changeTab($heading)
+		function changeTab($seq)
 		{
-			$this->currentTabIndex = $this->getTabIndexBySeq($heading);
+			$this->currentTab = $this->tabLookupBySeq[$seq];
 			if ($this->mode == 0 && !is_null($this->a()))
 			{
 				$this->refresh();
@@ -305,41 +275,6 @@
 		{
 			$this->setTab($heading,$this->a()->newChildApplication($app));
 		}
-		/*
-		function replaceComponent($com,$newCom)
-		{
-			foreach($this->tabLookupBySeq as $tab)
-			{
-				if ($tab->getContent() == $com)
-				{
-					$tab->setContent($newCom);
-					//$this->refresh();
-					$this->refreshCurrentTab();
-					return;
-				}
-			}
-		}
-		*/
-		
-		function refreshCurrentTab()
-		{		
-			$childrenContext = $this->getContext();
-			$childrenContext['parent'] = $this;
-			$i = 0;
-			foreach($this->tabLookupBySeq as $t)
-			{
-				if ($i == $this->currentTabIndex)
-				{
-					$tab = $t;
-					break 1;
-				}
-				$i = $i + 1;
-			}
-			//out::println($i.'  ghgh');
-			$tabStripId = $this->getFullId();
-			$content = '<div id="'.$tabStripId.'_'.$this->currentTabIndex.'">'.$t->getContent()->renderInContext($childrenContext).'</div>';
-			Response::addMessage('setdiv',$tabStripId.'_'.$this->currentTabIndex.'-'.$content);	
-		}
 		
 		function setCloseable($h,$c)
 		{
@@ -348,7 +283,7 @@
 		
 		function setCurrentTabIndex($index)
 		{
-			$this->currentTabIndex = $index;
+			$this->currentTab = $this->getTabAtIndex($index);
 		}
 		
 		function setTabEditableE($heading,$e)
@@ -439,7 +374,7 @@ if (isset($_POST['close']))
 	$s = explode('x',$_POST['close'],6);
 	//$s[3] not used yet.
 	//Response::info($s[1]);
-	Application::getApplication($s[1])->getComponent($s[2])->removeTabAtIndex(str_replace("_"," ",$s[4]));
+	Application::getApplication($s[1])->getComponent($s[2])->removeTabBySeq(str_replace("_"," ",$s[4]));
 	Response::send();
 }	
 

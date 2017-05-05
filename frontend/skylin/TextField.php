@@ -37,6 +37,7 @@ class TextField extends Component
 		$this->setProp('view',$view);
 		$this->setProp("col",$col);
 		$this->rowE = 'return $this->c("view")->getFirst();';
+		return $this;
 		
 	}
 	
@@ -45,12 +46,14 @@ class TextField extends Component
 		$this->setProp('view',$view);
 		$this->setProp("col",$col);
 		$this->rowE = 'return $this->c("view")->getCurrent();';
+		return $this;
 	}
 	
 	function setValueE($value)
 	{
 		$this->valueE = $value;	
 		$this->editableE = "return false;";
+		return $this;
 	}
 	
 	function setValue($value)
@@ -58,6 +61,7 @@ class TextField extends Component
 		$this->setProp('staticValue',$value);
 		$this->valueE = 'return $this->c("staticValue");';
 		$this->editableE = "return false;";
+		return $this;
 	}
 	
 	function getValue()
@@ -68,6 +72,7 @@ class TextField extends Component
 	function setTypeE($value)
 	{
 		$this->type = $value;	
+		return $this;
 	}
 	
 	function getType()
@@ -78,11 +83,13 @@ class TextField extends Component
 	function setEditableE($value)
 	{
 		$this->editableE = $value;
+		return $this;
 	}
 	
 	function setEditable($value)
 	{
 		$this->editableE = 'return '.$value.';';
+		return $this;
 	}
 	
 	function getEditable()
@@ -93,6 +100,7 @@ class TextField extends Component
 	function setSourceCheckE($value)
 	{
 		$this->sourceCheckE = $value;
+		return $this;
 	}
 	
 	function getSourceCheck()
@@ -103,11 +111,13 @@ class TextField extends Component
 	function setMinDecE($value)
 	{
 		$this->minDecE = $value;
+		return $this;
 	}
 	
 	function setMinDec($value)
 	{
 		$this->minDecE = 'return '.$value.';';
+		return $this;
 	}
 	
 	function getMinDecE()
@@ -118,6 +128,7 @@ class TextField extends Component
 	function setValueUpdateE($v)
 	{
 		$this->valueUpdate = $v;
+		return $this;
 	}
 	
 	function setCurrentValue($v)
@@ -137,13 +148,10 @@ class TextField extends Component
 		{
 			$this->setContextParam($this->getRowVarName(),eval($this->rowE));
 		}
-		/*
-		if (java_is_null($this->r()))
+		if ($this->c("skylin_draggableContainer") != null)
 		{
-			$this->setContextParam($this->getRowVarName(),$this->c('defaultRow'));
+			$draggableContainer = 'draggablecontainer='.$this->c("skylin_draggableContainer");
 		}
-		*/
-		//$this->setCurrentRow($this->r());
 		if ($this->password) 
 		{
 			$htmlType = 'password';
@@ -167,7 +175,7 @@ class TextField extends Component
 			{
 				$type = $this->getType();
 				$value = $this->getValue();
-				return '<div id = "'.$id.'_tip" class = "TextField_tip_disabled"><textarea class="TextFieldMulti" id = "'.$id.'" sk_type="'.$type.'" name="fname" '.$this->getStyleFull().'>'.$value.'</textarea></div>';
+				return '<div id = "'.$id.'_tip" class = "TextField_tip_disabled"><textarea class="TextFieldMulti" id = "'.$id.'" sk_type="'.$type.'" name="fname" '.$this->getStyleFull().' '.$draggableContainer.'>'.$value.'</textarea></div>';
 			}
 			else
 			{
@@ -185,14 +193,28 @@ class TextField extends Component
 			$style = $this->getStyle();
 			if ($type == 'number')
 			{	
-				$style = $style.';text-align:right';
+				$style = 'text-align:right;'.$style;
 				$minDec = $this->getMinDecE();
 				if ($minDec >= 0) 
 				{
 					$value = number_format ($value,$minDec,'.','');
 				}		
 			}
-			return '<div id = "'.$id.'_tip" class = "TextField_tip_disabled"><input id = "'.$id.'" type="'.$htmlType.'" class="TextField" sk_type="'.$type.'" name="fname" value = "'.$value.'" style="'.$style.'"></div>';
+			$classes = "TextField";
+			if($this->c("skylin_focusEdit"))
+			{
+				$classes = $classes.' TextField_focusedit';
+			}
+			
+			if ($_REQUEST["SKYLIN_VALIDATE"])
+			{
+				$error = $this->r()->getCurrentValueValidation($this->c("col"));
+				if ($error != null)
+				{
+					return '<div id = "'.$id.'_tip" class = "TextField_tip error" data-tip="'.$error.'"><input id = "'.$id.'" type="'.$htmlType.'" class="'.$classes.'" sk_type="'.$type.'" name="fname" value = "'.$value.'" style="'.$style.'" '.$draggableContainer.'></div>';
+				}
+			}
+			return '<div id = "'.$id.'_tip" class = "TextField_tip_disabled"><input id = "'.$id.'" type="'.$htmlType.'" class="'.$classes.'" sk_type="'.$type.'" name="fname" value = "'.$value.'" style="'.$style.'" '.$draggableContainer.'></div>';
 		}
 		else
 		{
@@ -201,7 +223,7 @@ class TextField extends Component
 			$style = $this->getStyle();
 			if ($type == 'number')
 			{	
-				$style = $style.';text-align:right';
+				$style = 'text-align:right;'.$style;
 				$minDec = $this->getMinDecE();
 				if ($minDec >= 0)
 				{
@@ -225,12 +247,20 @@ class TextField extends Component
 	}
 	
 	function valueChange($linkId,$value)
+	{	
+		if ($this->valueChange_step1($linkId,$value))
+		{
+			$this->valueChange_step2($linkId,$value);
+		}
+	}
+	
+	function valueChange_step1($linkId,$value)
 	{
 		$this->setRow($linkId);
 		
 		if (!$this->getEditable() || !$this->getRendered())
 		{
-			return;
+			return false;
 		}
 			
 		$this->setContextParam('OLD_VALUE',$this->getValue());
@@ -241,32 +271,36 @@ class TextField extends Component
 		$this->setError($result,$id);
 		$this->setContextParam('NEW_VALUE',$this->getValue());
 		
-		if ($result == null && $this->actionOnValueChange)
+		return $result == null;
+	}
+	
+	function valueChange_step2($linkId,$value)
+	{
+		if ($this->actionOnValueChange)
 		{
 			$this->click($linkId);
 		}
-		if ($result == null && isset($this->afterValueChangeE))
+		if (isset($this->afterValueChangeE))
 		{
 			$this->setContextParam('row',$this->r()->getView()->getRowByLinkId($linkId));
 			eval($this->afterValueChangeE);
-		}
-		
-
+		}	
 	}
 	
 	function setAction($a)//deprecated
 	{
-		$this->afterEnterKey($a);
+		return $this->afterEnterKey($a);
 	}
 	
 	function setActionE($a)
 	{
-		$this->afterEnterKey($a);
+		return $this->afterEnterKey($a);
 	}
 	
 	function afterEnterKey($a)
 	{
 		$this->action = $a;
+		return $this;
 	}
 	
 	function click($id)
@@ -282,11 +316,13 @@ class TextField extends Component
 	function link()
 	{
 		$this->controlType = 1;
+		return $this;
 	}
 	
 	function actionOnValueChange()//deprecated
 	{
 		$this->actionOnValueChange = true;
+		return $this;
 	}
 	
 	function isActionOnValueChange()
@@ -297,16 +333,19 @@ class TextField extends Component
 	function setAfterValueChange($e)//deprecated
 	{
 		$this->afterValueChange($e);
+		return $this;
 	}
 	
 	function afterValueChange($e)//deprecated
 	{
 		$this->afterValueChangeE = $e;
+		return $this;
 	}
 	
 	function afterValueChangeE($e)
 	{
 		$this->afterValueChangeE = $e;
+		return $this;
 	}
 	
 	function getAfterValueChangeE()
@@ -344,35 +383,41 @@ class TextField extends Component
 	function setInputFilterE($e)
 	{
 		$this->inputFilterE = $e;
+		return $this;
 	}
 	
 	function password()
 	{
 		$this->password = true;
+		return $this;
 	}
 	
 	function multiLine()
 	{
 		$this->controlType = 2;
+		return $this;
 	}
 }
 
 if (isset($_POST['change'])) 
 {
-	require $_SERVER['DOCUMENT_ROOT']."/skylin/InitRequest.php";
+	require_once $_SERVER['DOCUMENT_ROOT']."/skylin/InitRequest.php";
 	$s = explode('x',$_POST['change'],4);
 	$t = explode(',',$s[3],2);
 	$value = $t[1];
 	$com = Application::getApplication($s[1])->getComponent($s[2]);
 	$value = $com->getFilteredInput($value);
 	$com->valueChange($t[0],$value);
-	Response::send();
+	if (!isset($_POST['linkClick']))
+	{
+		Response::send();
+	}
 }
 
 
 if (isset($_POST['linkClick'])) 
 {
-	require $_SERVER['DOCUMENT_ROOT']."/skylin/InitRequest.php";
+	require_once $_SERVER['DOCUMENT_ROOT']."/skylin/InitRequest.php";
 	$s = explode('x',$_POST['linkClick'],4);
 	if (!Application::getApplication($s[1])->getComponent($s[2])->isActionOnValueChange())
 	{

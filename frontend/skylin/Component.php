@@ -2,19 +2,19 @@
 
 class Component
 {
-	protected $context = array();
-	protected $id;
-	protected $currentRow;//refactor out asap
-	protected $blockAction;
-	protected $style;
-	protected $styleE;
-	protected $titleE;
-	protected $customProperties = array();
-	protected $dynamicCustomProperties = array();
-	protected $registered = false;
-	protected $renderedE = 'return true;';
-	protected $rowVarName = 'row';
-	protected $afterRenderE;
+	private $context = array();
+	private $id;
+	private $currentRow;//refactor out asap
+	private $blockAction;
+	private $style;
+	private $styleE;
+	private $titleE;
+	private $customProperties = array();
+	private $dynamicCustomProperties = array();
+	private $registered = false;
+	private $renderedE = 'return true;';
+	private $rowVarName = 'row';
+	private $afterRenderE;
 	
 	public function __construct() 
 	{
@@ -61,7 +61,7 @@ class Component
 		}
 		else
 		{
-			return '<div id="'.$this->getFullId().'"></div>';
+			return '<div id="'.$this->getFullId().'" style="display:none"></div>';
 		}
 	}
 	
@@ -72,6 +72,10 @@ class Component
 	
 	function refreshInRow($row)
 	{
+		if ($row == null)
+		{
+			return null;
+		}
 		$this->setContextParam('row',$row);
 		$this->refresh();
 	}
@@ -94,6 +98,7 @@ class Component
 			throw new Exception('The letter x in id\'s is reserved by skylin');
 		}
 		$this->id = $id;
+		return $this;
 	}
 	
 	function getId()
@@ -130,6 +135,7 @@ class Component
 	function setRenderedE($r)
 	{
 		$this->renderedE = $r;
+		return $this;
 	}
 	
 	function getRendered()
@@ -183,16 +189,19 @@ class Component
 	function setStyle($s)
 	{
 		$this->style = $s;
+		return $this;
 	}
 	
 	function setStyleE($s)
 	{
 		$this->styleE = $s;
+		return $this;
 	}
 	
 	function addStyle($s)
 	{
 		$this->style = $this->style.';'.$s;
+		return $this;
 	}
 	
 	function getStyle()
@@ -227,6 +236,7 @@ class Component
 	function setTitle($t)
 	{
 		$this->titleE = 'return "'.$t.'";';
+		return $this;
 	}
 	
 	function getTitle()
@@ -250,17 +260,20 @@ class Component
 	function setTitleE($t)
 	{
 		$this->titleE = $t;
+		return $this;
 	}
 	
 	function setProp($k,$p)
 	{
 		$this->customProperties[$k] = $p;
 		$this->context[$k] = $p;
+		return $this;
 	}
 	
 	function setPropE($k,$p)
 	{
 		$this->dynamicCustomProperties[$k] = $p;	
+		return $this;
 	}
 	
 	/*
@@ -278,6 +291,7 @@ class Component
 	function setRowVarName($name)
 	{
 		$this->rowVarName = $name;
+		return $this;
 	}
 	
 	function s()
@@ -286,18 +300,28 @@ class Component
 		if ($sec == null)
 		{
 			$sec = new java('skylin.SecurityContext');
+			/*
 			$_SESSION[$sec->getId()] = $sec;
 			if (function_exists('apc_store'))
 			{
 				apc_store($sec->getId().'',session_id());
 			}
+			*/
 			$sec->setExtra($this);
 			$this->setProp('sec', $sec);
-			//$_SESSION['LATEST_SECURITY_CONTEXT'] = $this->c('sec');
 			return $sec;
 		}
 		return $sec;
 	}
+	
+	function forceNewSecurityContext()
+	{
+		$sec = new java('skylin.SecurityContext');
+		$sec->setExtra($this);
+		$this->setProp('sec', $sec);
+		return $sec;
+	}
+	
 	function genToken()
 	{
 		$secureToken = $_SESSION['UTIL']->getSecureUnsignedNumberAsHexString(32);
@@ -312,7 +336,9 @@ class Component
 	
 	function dropAllProperties()
 	{
+		$sec = $this->customProperties['sec'];
 		$this->customProperties = array();
+		$this->customProperties['sec'] = $sec;
 		$this->dynamicCustomProperties = array();
 	}
 	
@@ -331,6 +357,42 @@ class Component
 	function afterRenderE($e)
 	{
 		$this->afterRenderE = $e;
+	}
+	
+	function com($c)
+	{
+		return $this->a()->com($c);
+	}
+	
+	function getAM($n = null)
+	{
+		return $this->a()->getAM($n);
+	}
+	
+	//deprecated. use getView
+	function getViewObject($o)
+	{
+		return $this->a()->getAM()->getViewObject($o);
+	}
+	
+	function getView($o)
+	{
+		return $this->a()->getAM()->getView($o);
+	}
+	
+	function refreshComs($coms)
+	{
+		$this->a()->refreshComs($coms);	
+	}
+	
+	function destroy()
+	{
+		
+	}
+	
+	function scrollToBottom()
+	{
+		Response::addMessage('scrolltobottom',$this->getFullId());
 	}
 }
 

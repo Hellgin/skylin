@@ -45,7 +45,7 @@
 				$root = realpath($_SERVER["DOCUMENT_ROOT"]);
 				if (file_exists("$root/root_application_init.php"))
 				{
-					include 'root_application_init.php';
+					include 'root_application_init.php';//check that no application relies on this then get rid of it!!!
 				}
 				$_SESSION['UTIL'] = java('skylin.util.Util');
 				$_SESSION['CONTEXT_PARAMS'] = java('skylin.ContextParams');
@@ -79,6 +79,15 @@
 			$ret = $_SESSION['NEXT_APPLICATION_ID'];
 			$_SESSION['NEXT_APPLICATION_ID'] = $_SESSION['NEXT_APPLICATION_ID'] + 1;
 			return $ret;
+		}
+		
+		function getTopApplication()
+		{
+			if ($this->a() == self::getRootApplication())
+			{
+				return $this;
+			}
+			return $this->a()->getTopApplication();
 		}
 		
 
@@ -119,7 +128,8 @@
 			}
 			if ($this->childApplications[$instanceName] != null)
 			{
-				$this->dropChildApplication($this->childApplications[$instanceName]);
+				//$this->dropChildApplication($this->childApplications[$instanceName]);
+				$this->childApplications[$instanceName]->destroy();
 			}
 			return new Application($name,$this,$instanceName);
 		}
@@ -136,17 +146,21 @@
 		{	
 			if ($this->applicationModules[$name] == null)
 			{
-				$this->applicationModules[$name] = (new java('skylin.AMContainer'))->load($className);
-				$this->applicationModules[$name]->setSecurityContext($this->c('sec'));
-				$this->applicationModules[$name]->setFrontEndApplicationId($this->applicationId);
-				$this->applicationModules[$name]->setBridgeSession(java_bridge_session());
+				$am = (new java('skylin.AMContainer'))->load($className);
+				$this->applicationModules[$name] = $am;
+				$this->setProp('sec',$this->s());//hmmm. consider this plz. (i think it has been considered and its good?)
+				$am->setSecurityContext($this->s());
+				$am->setFrontEndApplicationId($this->getApplicationId());
+				$am->setTopFrontEndApplicationId($this->getTopApplication()->getApplicationId());
+				$am->setObjectId($am->_getJavaObjectId());
+				$am->setBridgeSession(java_bridge_session());
 				if (!is_null($dataSource))
 				{
-					$this->applicationModules[$name]->setDataSource($dataSource);
+					$am->setDataSource($dataSource);
 				}
 				if (is_null($this->firstAm))
 				{
-					$this->firstAm = $this->applicationModules[$name];
+					$this->firstAm = $am;
 				}
 			}
 		}
@@ -183,7 +197,8 @@
 				$_SESSION['STATIC_TITLE'] = $this->title;
 			}
 			
-			return parent::render($c);
+			//return parent::render($c);
+			return $this->renderInOtherContext($c);
 		}
 		
 		
@@ -285,7 +300,10 @@
 			}
 			
 			//$this->dropChildApplications();
-			$this->a()->dropChildApplication($this);
+			if ($this->a() != null)
+			{
+				$this->a()->dropChildApplication($this);
+			}
 
 			if ($this->above != null)
 			{
@@ -317,6 +335,7 @@
 		{
 			foreach ($this->childApplications as $a)
 			{
+				$a->dropChildApplications();
 				if(($key = array_search($a, $_SESSION['APPLICATIONS'])) !== false) {
 					unset($_SESSION['APPLICATIONS'][$key]);
 				}
@@ -470,6 +489,17 @@
 		function removeComponant($id)
 		{
 			unset($this->components[$id]);
+		}
+		
+		//deprecated. use getView
+		function getViewObject($o)
+		{
+			return $this->getAM()->getViewObject($o);
+		}
+		
+		function getView($o)
+		{
+			return $this->getAM()->getView($o);
 		}
 	}
 	

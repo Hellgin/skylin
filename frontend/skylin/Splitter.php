@@ -6,6 +6,8 @@ class Splitter extends Component
 	private $groupRight;
 	private $closedE = 'return false;';
 	private $reverse = false;
+	private $barStyle;
+	private $width;
 	
 	public function __construct($name = null,$parentApp = null) 
 	{
@@ -70,9 +72,9 @@ class Splitter extends Component
 			*/
 			
 			
-			 $right = 'splitter_right';
-			 $left = 'splitter_left';
-			 $bar = 'splitter_bar';
+			 $right = 'splitter_right'.$this->width;
+			 $left = 'splitter_left'.$this->width;
+			 $bar = 'splitter_bar'.$this->width;
 			 $button = 'splitter_button';
 			 if ($this->getClosed())
 			 {
@@ -90,7 +92,7 @@ class Splitter extends Component
 	'.$this->groupLeft->renderInContext($this->getContext()).'								
     </div>
 			
-	<div class="'.$bar.'" id="'.$id.'_bar">
+	<div class="'.$bar.'" id="'.$id.'_bar" '.$this->barStyle.'>
 	<div class = "'.$button.'" id="'.$id.'_button" style="background-image: url(skylin/images/splitter_arrow.png)"></div>
 	</div>		
 			
@@ -106,10 +108,10 @@ class Splitter extends Component
 		{
 			
 			$splitter = 'splitter_reverse';
-			$bar = 'splitter_bar_reverse';
-			$left = 'splitter_left_reverse';
+			$bar = 'splitter_bar_reverse'.$this->width;
+			$left = 'splitter_left_reverse'.$this->width;
 			$button = 'splitter_button_reverse';
-			$right = 'splitter_right_reverse';
+			$right = 'splitter_right_reverse'.$this->width;
 			if ($this->getClosed())
 			{
 				$splitter = $splitter.' splitter_closed_reverse';
@@ -122,7 +124,7 @@ class Splitter extends Component
 			$id = $this->getFullId();
 			return '<div class="'.$splitter.'" id="'.$id.'" '.$this->getStyleFull().'>
 						<div class="'.$left.'" id="'.$id.'_left">'.$this->groupLeft->renderInContext($this->getContext()).'</div>
-						<div class="'.$bar.'" id="'.$id.'_bar">
+						<div class="'.$bar.'" id="'.$id.'_bar" '.$this->barStyle.'>
 							<div class = "'.$button.'" id="'.$id.'_button_reverse" style="background-image: url(skylin/images/splitter_arrow.png)"></div>
 						</div>
 						<div class="'.$right.'" id="'.$id.'_right">'.$this->groupRight->renderInContext($this->getContext()).'</div>
@@ -145,6 +147,19 @@ class Splitter extends Component
 	function reverse()
 	{
 		$this->reverse = true;
+		return $this;
+	}
+	
+	function setBarStyle($s)
+	{
+		$this->barStyle = 'style="'.$s.'"';
+		return $this;
+	}
+	
+	function setWidth($w)
+	{
+		$this->width = $w;
+		return $this;
 	}
 }
 

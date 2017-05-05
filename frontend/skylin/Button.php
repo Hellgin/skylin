@@ -1,13 +1,13 @@
 <?php
 
-use Opis\Closure\SerializableClosure;
+//use Opis\Closure\SerializableClosure;
 
 require_once "Component.php";
 class Button extends Component
 {
 	private $action;
-	private $actionF;
-	private $actionF_ser;
+	//private $actionF;
+	//private $actionF_ser;
 	private $textE = 'return "";';
 	private $actionName;
 	private $editableE;
@@ -18,24 +18,29 @@ class Button extends Component
 	function setAction($action)
 	{
 		$this->setActionE($action);
+		return $this;
 	}
 	function setActionE($action)
 	{
 		$this->action = $action;
+		return $this;
 	}
+	/*
 	function setActionF($action)
 	{
 		$this->actionF_ser = serialize(new SerializableClosure($action));
-	}
+	}*/
 
 	function setActionName($actionName)
 	{
 		$this->actionName = $actionName;
+		return $this;
 	}
 	
 	function setEditableE($e)
 	{
 		$this->editableE = $e;
+		return $this;
 	}
 	
 	function getEditable()
@@ -118,6 +123,7 @@ class Button extends Component
 		{
 			eval($this->action);
 		}
+		/*
 		else 
 		{
 			if ($this->actionF == null)
@@ -126,24 +132,28 @@ class Button extends Component
 			}
 			$c = $this->actionF;
 			$c();
-		}
+		}*/
 	}
 	
+	/*
 	function __sleep()
 	{
 		$vars = get_object_vars($this);
 		unset($vars['actionF']);
 		return array_keys($vars);
 	}
+	*/
 	
 	function setText($t)
 	{
 		$this->textE = 'return "'.$t.'";';
+		return $this;
 	}
 	
 	function setTextE($t)
 	{
 		$this->textE = $t;
+		return $this;
 	}
 	
 	function getText()
@@ -165,18 +175,21 @@ class Button extends Component
 		$this->imageE1 = null;
 		//$this->imageE2 = 'return "'.$_SESSION['WEB_APP'].$path.'";';
 		$this->imageE2 = 'return "'.$path.'";';
+		return $this;
 	}
 	
 	function setImageRel($path)
 	{
 		$this->imageE1 = null;
 		$this->imageE2 = 'return $this->a()->getDir()."/'.$path.'";';	
+		return $this;
 	}
 	
 	function setImageRelE($pathE)
 	{
 		$this->imageE1 = 'return $this->a()->getDir()."/";';
 		$this->imageE2 = $pathE;	
+		return $this;
 	}
 }
 

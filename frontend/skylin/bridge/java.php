@@ -93,10 +93,17 @@ class java
 	
 }
 
-function java($class)
+function java($class,$am = null)
 {
 	$j = new java();
-	$j->_setJavaObjectId(intval(jvmCall('3,'.$class)));
+	if ($am != null)
+	{
+		$j->_setJavaObjectId(intval(jvmCall('3,'.$class.','.$am->_getJavaObjectId())));
+	}
+	else
+	{
+		$j->_setJavaObjectId(intval(jvmCall('3,'.$class)));
+	}
 	return $j;
 }
 
@@ -231,7 +238,7 @@ function _objectToString($a)
 			{
 				return 'n';
 			}
-			error_log("unsuported skylin bridge object argument class: ".get_class($a).'. All passed objects must be java objects.', 0);
+			error_log("unsuported skylin bridge object argument class: ".get_class($a).'. All passed objects must be java objects or PHP primatives.', 0);
 			exit;
 		}
 		return 'o'.$a->_getJavaObjectId();

@@ -11,6 +11,7 @@
 			parent::__construct();
 			if (strpos($sourceE, ' ') !== false) {
 				$this->sourceE = $sourceE;
+				$this->setProp('col',null);
 			}
 			else 
 			{
@@ -21,11 +22,13 @@
 		function setSourceE($s)
 		{
 			$this->sourceE = $s;
+			return $this;
 		}
 		
 		function setSourceRel($image)
 		{
 			$this->sourceE = 'return $this->a()->getDir()."/'.$image.'";';
+			return $this;
 		}
 		
 		function getSource()
@@ -53,6 +56,7 @@
 		function noLoad()
 		{
 			$this->noLoad = true;
+			return $this;
 		}
 		
 		
@@ -87,11 +91,13 @@
 		function onClick($code)//deprecated
 		{
 			$this->onClick = $code;
+			return $this;
 		}
 		
 		function onClickE($code)
 		{
 			$this->onClick = $code;
+			return $this;
 		}
 		
 		function click($id)

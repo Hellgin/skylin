@@ -10,21 +10,25 @@
 		function setRows($r)
 		{
 		  $this->rows = $r;
+		  return $this;
 		}
 		
 		function setRowsE($r)
 		{
 			$this->rowsE = $r;
+			return $this;
 		}
 		
 		function setViewE($v)
 		{
 			$this->viewE = $v;
+			return $this;
 		}
 		
 		function setView($v)
 		{
 			$this->view = $v;
+			return $this;
 		}
 		
 		function render()
@@ -55,7 +59,8 @@
 				//$this->setContextParam('row',$row);
 				$c = $this->getContext();
 				$c['row'] = $row;
-				$ret = $ret.parent::render($c);
+				//$ret = $ret.parent::render($c);
+				$ret = $ret.$this->renderInOtherContext($c);
 			}
 			$ret = $ret.'</div>';
 			return $ret;

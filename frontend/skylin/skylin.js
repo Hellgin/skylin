@@ -18,6 +18,8 @@ $(document).ready(function()
 		}
 	});
 
+
+
 	eventHandlers = {};
 	eventHandlers['.button'] = {};
 	eventHandlers['.button']['click'] = function()
@@ -100,6 +102,22 @@ $(document).ready(function()
 	    $(this).parent().prop('class','TextField_tip_disabled');
         $.post(ajaxurl, data,response);
     };
+	eventHandlers['.TextField']['mousedown'] = function(event)
+	{
+		if (event.target.getAttribute("draggablecontainer") != null)
+		{
+			document.getElementById(event.target.getAttribute("draggablecontainer")).draggable = false;
+		}
+	}
+	eventHandlers['.TextField']['mouseup'] = function(event)
+	{
+		if (event.target.getAttribute("draggablecontainer") != null)
+		{
+			document.getElementById(event.target.getAttribute("draggablecontainer")).draggable = true;
+		}
+	}
+	eventHandlers['.TextField']['mouseleave'] = eventHandlers['.TextField']['mouseup'];
+	
     
 	eventHandlers['.TextFieldMulti'] = {};
 	eventHandlers['.TextFieldMulti']['change'] = function(event)
@@ -123,17 +141,25 @@ $(document).ready(function()
 	{
 		if (e.keyCode == 13) 
 		{
+		/*
 		    var ajaxurl = 'skylin/TextField.php',
 	        data =  {'change': $(this).attr("id")+","+$(this).val()};
 	        $.post(ajaxurl, data,response);
 			var ajaxurl = 'skylin/TextField.php';
 			data =  {'linkClick': $(this).attr("id")};
 			$.post(ajaxurl, data,response);
+			*/
+			var ajaxurl = 'skylin/TextField.php',
+	        data =  {'change': $(this).attr("id")+","+$(this).val(),
+	        		 'linkClick': $(this).attr("id")};
+	        $.post(ajaxurl, data,response);
+			var ajaxurl = 'skylin/TextField.php';
+			e.preventDefault();
 		}
 		if ($(this).attr("sk_type") == 'number')
 		{
-			// Allow: backspace, delete, tab, escape, enter and .
-			if ($.inArray(e.keyCode, [46, 8, 9, 27, 13, 110, 190]) !== -1 ||
+			// Allow: backspace, delete, tab, escape, enter - and .
+			if ($.inArray(e.keyCode, [46, 8, 9, 27, 13, 110, 189, 190, 109]) !== -1 ||
 				 // Allow: Ctrl+A
 				(e.keyCode == 65 && e.ctrlKey === true) || 
 				 // Allow: home, end, left, right, down, up
@@ -169,7 +195,7 @@ $(document).ready(function()
 		}
 	};
 	
-	eventHandlers['.table-row-hover']['mousedown'] = function(event)
+	eventHandlers['.table-row-hover']['click'] = function(event)
 	{
 		var ajaxurl = 'skylin/Table.php';
 		id = $(this).attr("id");
@@ -197,8 +223,158 @@ $(document).ready(function()
 			setattr(id+"_right",'class','table-row-hover');
 		}
 	};
+	var dragDataTransferData;//becuz broken html drag spec...
+	eventHandlers['.table-row']['dragstart'] = function(ev)
+	{
+		var a = this.id.split("x"); 
+		var table = "x"+a[1]+"x"+a[2];
+		//ev.originalEvent.dataTransfer.setData("text", "table-row,"+table+","+ev.target.id);
+		//dragDataTransferData = ev.originalEvent.dataTransfer.getData("text");
+		
+		ev.originalEvent.dataTransfer.setData("text", "bogus data");//so dragging works in firefox.
+		
+		dragDataTransferData = "table-row,"+table+","+ev.target.id;
+	}
 
+	eventHandlers['.table-row']['dragover'] = function(ev)
+	{
+		if (ev.target instanceof HTMLInputElement)
+		{
+			ev.preventDefault();
+		}
+		//var data = ev.originalEvent.dataTransfer.getData("text").split(",");
+		var data = dragDataTransferData.split(",");
+		if (data[0] != 'table-row')return;
+		
+		var a = this.id.split("x"); 
+		var table = "x"+a[1]+"x"+a[2];
+		if (data[1] != table) return;	
+		
+		$(this).addClass("table-row_drag-over");
+		var id = $(this).attr("id");
+		//if (id.endsWith("_right"))
+		if (strEndsWith(id,"_right"))
+		{
+			id = id.substring(0,id.length-6); 
+		}
+		else
+		{
+			id = id + "_right";
+		}
+		$('#'+id).addClass("table-row_drag-over");
+		
+		
+		ev.preventDefault();
+	}
 	
+	eventHandlers['.table-row']['dragleave'] = function(event)
+	{
+		$(this).removeClass("table-row_drag-over");
+		var id = $(this).attr("id");
+		//if (id.endsWith("_right"))
+		if (strEndsWith(id,"_right"))
+		{
+			id = id.substring(0,id.length-6); 
+		}
+		else
+		{
+			id = id + "_right";
+		}
+		$('#'+id).removeClass("table-row_drag-over");
+	}
+	
+	eventHandlers['.table-row']['drop'] = function(ev)
+	{
+		//var data = ev.originalEvent.dataTransfer.getData("text").split(",");
+		var data = dragDataTransferData.split(",");
+		if (data[0] != 'table-row')return;
+		
+		var a = this.id.split("x"); 
+		var table = "x"+a[1]+"x"+a[2];
+		if (data[1] != table) return;	
+		
+		var a = data[2];
+		var b = this.id;
+		
+		//if (a.endsWith("_right"))
+		if (strEndsWith(a,"_right")) a = a.substring(0,a.length-6);
+		//if (b.endsWith("_right"))
+		if (strEndsWith(b,"_right")) b = b.substring(0,b.length-6);
+		
+	    var ajaxurl = 'skylin/Table.php',
+        data =  {'dragRow': a+","+b};
+        $.post(ajaxurl, data,response);
+	}
+	
+	eventHandlers['.table-row_selected'] = {};
+	eventHandlers['.table-row_selected']['dragstart'] = eventHandlers['.table-row']['dragstart'];
+	eventHandlers['.table-row_selected']['dragover'] = eventHandlers['.table-row']['dragover'];
+	eventHandlers['.table-row_selected']['dragleave'] = eventHandlers['.table-row']['dragleave'];
+	eventHandlers['.table-row_selected']['drop'] = eventHandlers['.table-row']['drop'];
+	eventHandlers['.table-row-hover']['dragstart'] = eventHandlers['.table-row']['dragstart'];
+	eventHandlers['.table-row-hover']['dragover'] = eventHandlers['.table-row']['dragover'];
+	eventHandlers['.table-row-hover']['dragleave'] = eventHandlers['.table-row']['dragleave'];
+	eventHandlers['.table-row-hover']['drop'] = eventHandlers['.table-row']['drop'];
+
+
+	eventHandlers['.table-row_toggle'] = {};
+	eventHandlers['.table-row_toggle']['click'] = function(event)
+	{
+		var ajaxurl = 'skylin/Table.php';
+		id = $(this).attr("id");
+		id = id.substring(0,id.length-7);
+		data =  {'toggleRow': id};
+		$.post(ajaxurl, data,response);
+	};
+	
+	eventHandlers['.heading-col'] = {};
+	eventHandlers['.heading-col']['mousedown'] = function(event)
+	{
+		var ajaxurl = 'skylin/Table.php';
+		id = $(this).attr("id");
+		data =  {'selectCol': id};
+		$.post(ajaxurl, data,response);
+	};
+	
+	
+	eventHandlers['.heading-col']['dragstart'] = function(ev)
+	{
+		var table = "todo";
+		dragDataTransferData = "table-col,"+table+","+this.id;
+	}
+	eventHandlers['.heading-col']['dragover'] = function(ev)
+	{
+		if (ev.target instanceof HTMLInputElement)
+		{
+			ev.preventDefault();
+		}
+		//var data = ev.originalEvent.dataTransfer.getData("text").split(",");
+		var data = dragDataTransferData.split(",");
+		if (data[0] != 'table-col')return;
+		
+		var table = 'todo';
+		if (data[1] != table) return;	
+		
+		$(this).addClass("table-row_drag-over");
+		
+		ev.preventDefault();
+	}
+	
+	eventHandlers['.heading-col']['dragleave'] = function(ev)
+	{
+		$(this).removeClass("table-row_drag-over");
+	}
+	
+	eventHandlers['.heading-col']['drop'] = function(ev)
+	{
+		$(this).removeClass("table-row_drag-over");
+		
+		var data = dragDataTransferData.split(",");
+		
+	    var ajaxurl = 'skylin/Table.php',
+        data =  {'dragCol': data[2]+","+this.id};
+        $.post(ajaxurl, data,response);
+	}
 	
 	eventHandlers['.grid_next_button'] = {};
 	eventHandlers['.grid_next_button']['click'] = function()
@@ -324,6 +500,9 @@ $(document).ready(function()
 		$.post(ajaxurl, data,response);
 		
 	};
+	
+	eventHandlers['.splitter_bar_reverse300'] = eventHandlers['.splitter_bar_reverse'];
+
 	
 	eventHandlers['.tab_close'] = {};
 	eventHandlers['.tab_close']['click'] = function(event)
@@ -460,6 +639,16 @@ $(document).ready(function()
 
 	}
 	
+	//prevents firefox from trying to "open" dragged elemented when they are dropped.
+	window.addEventListener("dragover",function(e){
+		  e = e || event;
+		  e.preventDefault();
+		},false);
+		window.addEventListener("drop",function(e){
+		  e = e || event;
+		  e.preventDefault();
+		},false);
+	
 	refreshListeners($(document));
 	
 	$(document).on('mousemove', function(e){
@@ -486,35 +675,68 @@ $(document).ready(function()
 	});
 	
 	
-	
-	var loc = window.location, new_uri;
-	if (loc.protocol === "https:") {
-	    new_uri = "wss:";
-	} else {
-	    new_uri = "ws:";
+	wsConnect();
+    		      	
+});
+
+function wsConnect()
+{
+	if (typeof topAppId === "undefined")
+	{
+		return;
 	}
-	new_uri += "//" + loc.host + ":1001";
+	
+	
+	
+	
+	var loc = window.location, new_uri, port;
+
+	if (typeof webSocketPortOverride === "undefined")
+	{
+		if (loc.protocol === "https:") {
+		    new_uri = "wss:";
+		    port = 81;
+		} else {
+		    new_uri = "ws:";
+		    port = 80;
+		}
+	}
+	else
+	{
+		new_uri = "ws:";
+		port = webSocketPortOverride;
+	}
+
+	
+
+	new_uri += "//" + loc.host + ":"+port;
 	new_uri += loc.pathname + "SessionSocket";
-    		                //ws = new WebSocket('ws://localhost:8090/war_test/SessionSocket');
+	
 	ws = new WebSocket(new_uri);
 
     		            ws.onopen = function () {
-    		                ws.send(getCookie("PHPSESSID"));
+    		            	console.log("websocket connected");
+    		                ws.send("CONNECTED,"+topAppId+","+getCookie("PHPSESSID"));
     		            };
     		            ws.onmessage = function (event) {
-    		                //alert('Received: ' + event.data);
-    		            	response(event.data,null);
+    		            	if (event.data == "ping")
+    		            	{
+    		            		ws.send("PING,"+topAppId+","+getCookie("PHPSESSID"));
+    		            	}
+    		            	else
+    		            	{
+    		            		response(event.data,null);
+    		            	}
     		            };
     		            ws.onclose = function (event) {
-    		                //alert('Info: WebSocket connection closed, Code: ' + event.code + (event.reason == "" ? "" : ", Reason: " + event.reason));
+    		                setTimeout(wsConnect,5000);
+    		                
     		            };
     		        	ws.onerror = function(error) {
-    		      		  //alert('WebSocket Error: ' + error);
-    		      	};
-    		      	
-    		      	
-    console.log(getCookie("PHPSESSID"));		
-});
+    		      		};
+
+}
+
 
 function getCookie(cname) {
     var name = cname + "=";
@@ -673,7 +895,25 @@ function resizeTables(com)
 }
 function resizeTable(table)
 {
+	/*
 	var width = $(table).width();
+	var oldDisplay = table.style.display;
+	table.style.display = 'none';
+	var width = Math.min(width,$(table).parent().width());
+	table.style.display = oldDisplay;
+	*/
+	
+	var width = $(table).width();
+	var heightPlaceHolder = document.createElement('div');
+	table.parentNode.insertBefore(heightPlaceHolder, table);
+	heightPlaceHolder.style.height = $(table).height();
+	var oldDisplay = table.style.display;
+	table.style.display = 'none';
+	var width = Math.min(width,$(table).parent().width());
+	heightPlaceHolder.parentNode.removeChild(heightPlaceHolder);
+	table.style.display = oldDisplay;
+
+	
 	width = width - 2;//prevents extra horizontal scrollbar from forming in certian setups. Not sure why. 
 	var totalwidth = $(table).attr("totalwidth");
 	var leftwidth = $(table).attr("leftwidth");
@@ -840,7 +1080,116 @@ function processMessage(type,message)
 			futureFocus = null;
 		}
 	}
+	else if (type == 'seturl')
+	{
+		history.pushState({}, null, message);
+	}
+	else if (type == 'custom')
+	{
+		var s = splitWithTail(message,',',3);
+		var am = customMessageHandlers[s[0]];
+		if (am == null)
+		{
+			console.log("no listeners available for any channels for custom messages from AM "+s[0]+". MESSAGE: " + s[2]);
+			return;
+		}
+		var methods = am[s[1]];
+		if (methods == null)
+		{
+			console.log("no listener available for channel "+s[1]+" for custom messages from AM "+s[0]+". MESSAGE: " + s[2]);
+			return;
+		}
+		//methods.forEach(function(m){m(s[2]);}); slower aparently
+			
+		for (var i = 0, len = methods.length; i < len; i++) {
+  			methods[i](s[2]);
+		}
+	}
+	else if (type == 'scrolltobottom')
+	{
+		var myElem = document.getElementById(message);
+		if (myElem !== null){
+			myElem.scrollTop = myElem.scrollHeight;
+		}
+	}
 }
+
+function strEndsWith(str, suffix) {
+    return str.match(suffix+"$")==suffix;
+}
+
+customMessageHandlers = {};
+function registerToMessageChannel(amId,func,channel)
+{
+	var c;
+	if (typeof channel === 'undefined')
+	{
+		c = 'DEFAULT';
+	}	
+	else 
+	{
+		c = channel;
+	}
+	
+	if (typeof customMessageHandlers[amId] === 'undefined')
+	{
+		customMessageHandlers[amId] = {};
+	}
+	if (typeof customMessageHandlers[amId][c] === 'undefined')
+	{
+		customMessageHandlers[amId][c] = [];
+	}
+	customMessageHandlers[amId][c].push(func);
+}
+
+function deregisterFromMessageChannel(amId,func,channel)
+{
+	var c;
+	if (typeof channel === 'undefined')
+	{
+		c = 'DEFAULT';
+	}	
+	else 
+	{
+		c = channel;
+	}
+	if (typeof customMessageHandlers[amId] === 'undefined')
+	{
+		return;
+	}
+	if (typeof customMessageHandlers[amId][c] === 'undefined')
+	{
+		return;
+	}
+	
+	var index = customMessageHandlers[amId][c].indexOf(func);
+	if (index > -1) 
+	{
+	    customMessageHandlers[amId][c].splice(index, 1);
+	}
+}
+
+
+function messageAM(amId,message,channel)
+{
+	var c;
+	if (typeof channel === 'undefined')
+	{
+		c = 'DEFAULT';
+	}	
+	else 
+	{
+		c = channel;
+	}
+	
+	var m = {"amId":amId,"channel":c,"message":message};
+	
+	var xhr = new XMLHttpRequest();
+	xhr.open("POST", "/restless.php?skylin.services.builtin.MessageAM", true);
+	xhr.setRequestHeader('Content-Type', 'text/plain');
+	xhr.send(JSON.stringify(m));
+}
+
 var ctrlDown = false;
 $(document).keydown(function(e)
 	    {

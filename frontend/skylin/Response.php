@@ -64,6 +64,24 @@
 		static function send($includeBackEnd = true)
 		{
 			echo self::getDataToSend($includeBackEnd);
+			//out::println('memory: '.(memory_get_peak_usage()/1024/1024). ' '.count($_SESSION['APPLICATIONS']));
+			if (memory_get_peak_usage()/1024/1024 > 130)
+			{
+				$p = '';
+				foreach ($_POST as $key => $value)
+				{
+					$p = $p.$key.'='.$value.' ';
+				}
+				
+				/*
+				foreach ($_SESSION['APPLICATIONS'] as $a)
+				{
+					$p = $p.$a->getName().'\n';
+				}
+				*/
+				
+				error_log('memory: '.(memory_get_peak_usage()/1024/1024). ' '.session_id(). ' '.count($_SESSION['APPLICATIONS']).' '.$p."\n",0);
+			}
 			BridgeConnection.jvmCall('6');
 			//session_write_close();
 		}
@@ -148,6 +166,11 @@
 		static function download($link)
 		{
 			self::addMessage('download',$link);
+		}
+		
+		static function setUrl($url)
+		{
+			self::addMessage('seturl',$url);
 		}
 	}
 	if (isset($_POST['flush'])) 

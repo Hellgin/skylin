@@ -30,6 +30,9 @@
 				for ($x = 0; $x < $this->x; $x++) 
 				{
 					$style = 'display: table-cell;vertical-align: '.$this->vertAlign;
+					
+					$style = $style.';'.$this->allStyles;
+					
 					if (isset($this->collStyles[$x]))
 					{
 						$style = $style.';'.$this->collStyles[$x];
@@ -38,8 +41,6 @@
 					{
 						$style = $style.';'.$this->rowStyles[$y];
 					}
-					
-					$style = $style.';'.$this->allStyles;
 					
 					$ret=$ret.'<div style="'.$style.'">';
 					if (!is_null($this->children[$i]))
@@ -65,26 +66,31 @@
 		{
 			$this->x = $x;
 			$this->y = $y;
+			return $this;
 		}
 		
 		function setColStyle($i,$s)
 		{
 			$this->collStyles[$i] = $s;
+			return $this;
 		}
 		
 		function setRowStyle($i,$s)
 		{
 			$this->rowStyles[$i] = $s;
+			return $this;
 		}
 		
 		function setAllStyle($s)
 		{
 			$this->allStyles = $s;
+			return $this;
 		}
 		
 		function vertAlignAll($w)
 		{
 			$this->vertAlign = $w;
+			return $this;
 		}
 		
 		function getLast()
