@@ -26,6 +26,7 @@ import com.distantmelody.framework.skylin.security.QuickRoleLookup;
 import com.distantmelody.framework.skylin.server.SkylinDataSource;
 import com.distantmelody.library.json.J;
 import com.distantmelody.framework.skylin.util.ConnectionLookup;
+import com.distantmelody.framework.skylin.util.Util;
 import com.distantmelody.library.service.ServiceUtil;
 import com.distantmelody.framework.skylin.websocket.SessionSocket;
 
@@ -472,6 +473,11 @@ public class AM implements SkylinBridgeVirtualMethods
 	
 	public Object eval(String code, boolean forceNewRequest)
 	{
+		if (!"true".equalsIgnoreCase(Util.getFrameworkParam("BACKEND_EVAL")))
+		{
+			LOG.warn("Backend eval is disabled");
+			return null;
+		}
 		try
 		{
 			if (forceNewRequest || !BridgeConnection.isSameRequestEvalSupported())
