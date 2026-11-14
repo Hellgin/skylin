@@ -1,0 +1,1 @@
+<?php include "skylin/entry/index.php";?>
