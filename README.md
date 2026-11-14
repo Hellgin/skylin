@@ -12,7 +12,7 @@ Files under `php/skylin/dependencies` are third-party libraries and keep their o
 <dependency>
   <groupId>com.distantmelody</groupId>
   <artifactId>skylin</artifactId>
-  <version>0.1.0</version>
+  <version>1.0.0</version>
 </dependency>
 ```
 
@@ -24,4 +24,4 @@ mvn test
 
 Apache License 2.0. See [LICENSE](LICENSE).
 
-Publishing `0.1.0` to Maven Central uses `mvn -Prelease deploy` after `com.distantmelody:melody-json:0.1.0` and `com.distantmelody:melody-http:0.1.0` are already on Central, the `com.distantmelody` namespace is verified, a Central Portal token is in `settings.xml` under server id `central`, and GPG signing works. That deploy has not been run.
+Publishing `1.0.0` to Maven Central uses `mvn -Prelease deploy` after `com.distantmelody:melody-json:1.0.0` and `com.distantmelody:melody-http:1.0.0` are already on Central, the `com.distantmelody` namespace is verified, a Central Portal token is in `settings.xml` under server id `central`, and GPG signing works. That deploy has not been run.

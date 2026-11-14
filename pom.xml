@@ -6,7 +6,7 @@
 
   <groupId>com.distantmelody</groupId>
   <artifactId>skylin</artifactId>
-  <version>0.1.0</version>
+  <version>1.0.0</version>
 
   <name>Skylin</name>
   <description>Skylin application framework. The jar is the Java backend. PHP and CSS live in this repository beside it.</description>
@@ -59,7 +59,7 @@
     <dependency>
       <groupId>com.distantmelody</groupId>
       <artifactId>melody-http</artifactId>
-      <version>0.1.0</version>
+      <version>1.0.0</version>
     </dependency>
     <dependency>
       <groupId>javax.servlet</groupId>
