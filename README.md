@@ -16,7 +16,7 @@ Files under `php/skylin/dependencies` are third-party libraries and keep their o
 </dependency>
 ```
 
-`skylin` depends on `service-util`, which depends on `j`. Both stay on the compile classpath of a project that depends only on `skylin`, so that project can import `J` and `ServiceUtil` without declaring them.
+`skylin` depends on `melody-http`, which depends on `melody-json`. Both stay on the compile classpath of a project that depends only on `skylin`, so that project can import `J` and `ServiceUtil` without declaring them.
 
 ```
 mvn test
@@ -24,4 +24,4 @@ mvn test
 
 Apache License 2.0. See [LICENSE](LICENSE).
 
-Publishing `0.1.0` to Maven Central uses `mvn -Prelease deploy` after `com.distantmelody:j:0.1.0` and `com.distantmelody:service-util:0.1.0` are already on Central, the `com.distantmelody` namespace is verified, a Central Portal token is in `settings.xml` under server id `central`, and GPG signing works. That deploy has not been run.
+Publishing `0.1.0` to Maven Central uses `mvn -Prelease deploy` after `com.distantmelody:melody-json:0.1.0` and `com.distantmelody:melody-http:0.1.0` are already on Central, the `com.distantmelody` namespace is verified, a Central Portal token is in `settings.xml` under server id `central`, and GPG signing works. That deploy has not been run.
