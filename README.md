@@ -1,8 +1,10 @@
 # Skylin
 
-Application framework. The Maven jar is the Java backend, package `com.distantmelody.framework.skylin`. PHP, CSS, and JavaScript are not inside that jar. They are published as `skylin-1.0.1-web.zip` (classifier `web`). Unpacking that zip at the document root puts `index.php`, `rest.php`, and `restless.php` there, and the `skylin/` directory beside them.
+Application framework. The Maven jar is the Java backend, package `com.distantmelody.framework.skylin`. PHP, CSS, and JavaScript are not inside that jar. They are `com.distantmelody:skylin-web`, a zip. The `skylin` jar depends on that zip, so a project that depends only on `skylin` downloads both.
 
-- Java sources: `src/main/java`
+Unpack `skylin-web` at the document root. That puts `index.php`, `rest.php`, and `restless.php` there, and the `skylin/` directory beside them.
+
+- Java sources: `java/src/main/java`
 - Web sources: `php/`
 - CSS: `php/skylin/skylin.css` and `php/skylin/dependencies/pickaday/pikaday.css`
 
@@ -16,17 +18,7 @@ Files under `php/skylin/dependencies` are third-party libraries and keep their o
 </dependency>
 ```
 
-```xml
-<dependency>
-  <groupId>com.distantmelody</groupId>
-  <artifactId>skylin</artifactId>
-  <version>1.0.1</version>
-  <type>zip</type>
-  <classifier>web</classifier>
-</dependency>
-```
-
-`skylin` depends on `melody-http`, which depends on `melody-json`. Both stay on the compile classpath of a project that depends only on `skylin`, so that project can import `J` and `ServiceUtil` without declaring them.
+`skylin` depends on `skylin-web`, and on `melody-http`, which depends on `melody-json`. `melody-http` and `melody-json` stay on the compile classpath of a project that depends only on `skylin`, so that project can import `J` and `ServiceUtil` without declaring them. `skylin-web` is a runtime dependency.
 
 ```
 mvn test
