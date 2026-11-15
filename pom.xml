@@ -6,10 +6,10 @@
 
   <groupId>com.distantmelody</groupId>
   <artifactId>skylin</artifactId>
-  <version>1.0.0</version>
+  <version>1.0.1</version>
 
   <name>Skylin</name>
-  <description>Skylin application framework. The jar is the Java backend. PHP and CSS live in this repository beside it.</description>
+  <description>Skylin application framework. The jar is the Java backend. The web classifier is a zip of the PHP, CSS, and JavaScript, unpacked at the document root.</description>
   <url>https://github.com/Hellgin/skylin</url>
 
   <licenses>
@@ -115,6 +115,25 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-jar-plugin</artifactId>
         <version>3.4.2</version>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-assembly-plugin</artifactId>
+        <version>3.7.1</version>
+        <executions>
+          <execution>
+            <id>web-zip</id>
+            <phase>package</phase>
+            <goals>
+              <goal>single</goal>
+            </goals>
+            <configuration>
+              <descriptors>
+                <descriptor>src/assembly/web.xml</descriptor>
+              </descriptors>
+            </configuration>
+          </execution>
+        </executions>
       </plugin>
     </plugins>
   </build>

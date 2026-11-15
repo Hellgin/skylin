@@ -1,18 +1,28 @@
 # Skylin
 
-Application framework. The Maven artifact is the Java backend, package `com.distantmelody.framework.skylin`. PHP and CSS are in this repository and are not inside the jar.
+Application framework. The Maven jar is the Java backend, package `com.distantmelody.framework.skylin`. PHP, CSS, and JavaScript are not inside that jar. They are published as `skylin-1.0.1-web.zip` (classifier `web`). Unpacking that zip at the document root puts `index.php`, `rest.php`, and `restless.php` there, and the `skylin/` directory beside them.
 
 - Java sources: `src/main/java`
-- PHP: `php/`
+- Web sources: `php/`
 - CSS: `php/skylin/skylin.css` and `php/skylin/dependencies/pickaday/pikaday.css`
 
-Files under `php/skylin/dependencies` are third-party libraries and keep their own licenses.
+Files under `php/skylin/dependencies` are third-party libraries and keep their own licenses. The web zip leaves out `php/tests`.
 
 ```xml
 <dependency>
   <groupId>com.distantmelody</groupId>
   <artifactId>skylin</artifactId>
-  <version>1.0.0</version>
+  <version>1.0.1</version>
+</dependency>
+```
+
+```xml
+<dependency>
+  <groupId>com.distantmelody</groupId>
+  <artifactId>skylin</artifactId>
+  <version>1.0.1</version>
+  <type>zip</type>
+  <classifier>web</classifier>
 </dependency>
 ```
 
@@ -23,5 +33,3 @@ mvn test
 ```
 
 Apache License 2.0. See [LICENSE](LICENSE).
-
-Publishing `1.0.0` to Maven Central uses `mvn -Prelease deploy` after `com.distantmelody:melody-json:1.0.0` and `com.distantmelody:melody-http:1.0.0` are already on Central, the `com.distantmelody` namespace is verified, a Central Portal token is in `settings.xml` under server id `central`, and GPG signing works. That deploy has not been run.
