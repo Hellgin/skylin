@@ -5,7 +5,7 @@ import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
 import java.nio.ByteBuffer;
-import java.util.HashMap;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.java_websocket.WebSocket;
 import org.java_websocket.handshake.ClientHandshake;
@@ -17,7 +17,7 @@ import com.distantmelody.library.json.J;
 
 public class SocketServer extends WebSocketServer{
 	
-	HashMap<WebSocket,SessionSocket> sockets = new HashMap<WebSocket,SessionSocket>();
+	ConcurrentHashMap<WebSocket,SessionSocket> sockets = new ConcurrentHashMap<WebSocket,SessionSocket>();
 
 	public SocketServer( int port,int decoders ) throws UnknownHostException {
 		super( new InetSocketAddress( port ) ,decoders);
@@ -129,9 +129,11 @@ public class SocketServer extends WebSocketServer{
 
 
     public void onClose(WebSocket session,int arg1, String arg2, boolean arg3) {
-    	if (sockets.containsKey(session))
+    	SessionSocket socket = sockets.remove(session);
+    	if (socket != null)
     	{
-    		sockets.get(session).closed = true;
+    		socket.closed = true;
+    		socket.detach();
     	}
     }
 

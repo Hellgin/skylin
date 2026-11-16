@@ -489,28 +489,61 @@ public class BridgeSession
 
 	public void addSessionSocket(long appId,SessionSocket socket) 
 	{
-		ArrayList<SessionSocket> list = sessionSockets.get(appId);
-		if (list == null)
+		synchronized (sessionSockets)
 		{
-			list = new ArrayList<SessionSocket>();
-			sessionSockets.put(appId, list);
+			ArrayList<SessionSocket> list = sessionSockets.get(appId);
+			if (list == null)
+			{
+				list = new ArrayList<SessionSocket>();
+				sessionSockets.put(appId, list);
+			}
+			list.add(socket);
 		}
-		list.add(socket);
+	}
+
+	/** Removes one closed connection. The app entry goes with it when it was the last socket. */
+	public void removeSessionSocket(long appId, SessionSocket socket)
+	{
+		synchronized (sessionSockets)
+		{
+			ArrayList<SessionSocket> list = sessionSockets.get(appId);
+			if (list == null)
+			{
+				return;
+			}
+			list.remove(socket);
+			if (list.isEmpty())
+			{
+				sessionSockets.remove(appId);
+			}
+		}
 	}
 	
 	public ArrayList<SessionSocket> getSessionSockets(long appId)
 	{
-		return sessionSockets.get(appId);
+		synchronized (sessionSockets)
+		{
+			ArrayList<SessionSocket> list = sessionSockets.get(appId);
+			if (list == null)
+			{
+				return new ArrayList<SessionSocket>();
+			}
+			return (ArrayList<SessionSocket>) list.clone();
+		}
 	}
 	
 	public void sendWebSocketText(long appId,String message)
 	{
-		ArrayList<SessionSocket> sockets = sessionSockets.get(appId);
-		if (sockets == null)
+		ArrayList<SessionSocket> clone;
+		synchronized (sessionSockets)
 		{
-			return;
+			ArrayList<SessionSocket> sockets = sessionSockets.get(appId);
+			if (sockets == null)
+			{
+				return;
+			}
+			clone = (ArrayList<SessionSocket>) sockets.clone();
 		}
-		ArrayList<SessionSocket> clone = (ArrayList<SessionSocket>) sockets.clone();
 		for (SessionSocket ss:clone)
 		{
 			try
@@ -519,24 +552,24 @@ public class BridgeSession
 			}
 			catch(WebsocketNotConnectedException e)
 			{
-				sockets.remove(ss);
+				removeSessionSocket(appId, ss);
 				ss.websocketSession.close();
-				if (sockets.size() == 0)
-				{
-					sessionSockets.remove(appId);
-				}
 			}
 		}
 	}
 	
 	public void sendWebSocketBinary(long appId,byte[] message)
 	{
-		ArrayList<SessionSocket> sockets = sessionSockets.get(appId);
-		if (sockets == null)
+		ArrayList<SessionSocket> clone;
+		synchronized (sessionSockets)
 		{
-			return;
+			ArrayList<SessionSocket> sockets = sessionSockets.get(appId);
+			if (sockets == null)
+			{
+				return;
+			}
+			clone = (ArrayList<SessionSocket>) sockets.clone();
 		}
-		ArrayList<SessionSocket> clone = (ArrayList<SessionSocket>) sockets.clone();
 		for (SessionSocket ss:clone)
 		{
 			try
@@ -545,35 +578,39 @@ public class BridgeSession
 			}
 			catch(WebsocketNotConnectedException e)
 			{
-				sockets.remove(ss);
+				removeSessionSocket(appId, ss);
 				ss.websocketSession.close();
-				if (sockets.size() == 0)
-				{
-					sessionSockets.remove(appId);
-				}
 			}
 		}
 	}
 	
 	public void webSocketPing() 
 	{
-		HashMap<Long,ArrayList<SessionSocket>> map = (HashMap<Long, ArrayList<SessionSocket>>) sessionSockets.clone();
+		HashMap<Long,ArrayList<SessionSocket>> map;
+		synchronized (sessionSockets)
+		{
+			map = (HashMap<Long, ArrayList<SessionSocket>>) sessionSockets.clone();
+		}
 		for (Long key:map.keySet())
 		{
-			ArrayList<SessionSocket> sockets = map.get(key);
-			ArrayList<SessionSocket> clone = (ArrayList<SessionSocket>) sockets.clone();
+			ArrayList<SessionSocket> clone;
+			synchronized (sessionSockets)
+			{
+				ArrayList<SessionSocket> sockets = sessionSockets.get(key);
+				if (sockets == null)
+				{
+					continue;
+				}
+				clone = (ArrayList<SessionSocket>) sockets.clone();
+			}
 			for (SessionSocket ss:clone)
 			{
 				try
 				{
 					if (ss.getPingInProgressTime() > 60000)
 					{
-						sockets.remove(ss);
+						removeSessionSocket(key, ss);
 						ss.websocketSession.close();
-						if (sockets.size() == 0)
-						{
-							sessionSockets.remove(key);
-						}
 					}
 					else
 					{
@@ -582,12 +619,8 @@ public class BridgeSession
 				}
 				catch(WebsocketNotConnectedException e)
 				{
-					sockets.remove(ss);
+					removeSessionSocket(key, ss);
 					ss.websocketSession.close();
-					if (sockets.size() == 0)
-					{
-						sessionSockets.remove(key);
-					}
 				}
 			}
 		}
@@ -634,11 +667,14 @@ public class BridgeSession
 	
 	public boolean isWebsocketAvailable(long appId)
 	{
-		ArrayList<SessionSocket> sockets = sessionSockets.get(appId);
-		if (sockets != null && sockets.size() > 0)
+		synchronized (sessionSockets)
 		{
-			resetWebSocketUnavailableCount(appId);
-			return true;
+			ArrayList<SessionSocket> sockets = sessionSockets.get(appId);
+			if (sockets != null && sockets.size() > 0)
+			{
+				resetWebSocketUnavailableCount(appId);
+				return true;
+			}
 		}
 		return false;
 		
@@ -687,31 +723,28 @@ public class BridgeSession
 	
 	public void destroy()
 	{
+		ArrayList<SessionSocket> open = new ArrayList<SessionSocket>();
 		try
 		{
-			for (ArrayList<SessionSocket> s:sessionSockets.values())
+			synchronized (sessionSockets)
+			{
+				for (ArrayList<SessionSocket> s:sessionSockets.values())
+				{
+					open.addAll(s);
+				}
+				sessionSockets.clear();
+			}
+			for (SessionSocket ss:open)
 			{
 				try
 				{
-					for (SessionSocket ss:s)
-					{
-						try
-						{
-							ss.websocketSession.close();
-						}
-						catch (Exception e)
-						{
-							LOG.error("Could not close a websocket session", e);
-						}
-					}
-					s.clear();
+					ss.websocketSession.close();
 				}
 				catch (Exception e)
 				{
-					LOG.error("Could not close the websocket sessions for one application", e);
+					LOG.error("Could not close a websocket session", e);
 				}
 			}
-			sessionSockets.clear();
 		}
 		catch (Exception e)
 		{

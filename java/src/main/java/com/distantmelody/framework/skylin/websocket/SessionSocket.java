@@ -51,8 +51,11 @@ public class SessionSocket {
 		{
 			lastPingTime = System.currentTimeMillis() - pingSent;
 			pingInProgress = false;
-			session.resetWebSocketUnavailableCount(appId);
-			session.lastActivity = System.currentTimeMillis();
+			if (session != null)
+			{
+				session.resetWebSocketUnavailableCount(appId);
+				session.lastActivity = System.currentTimeMillis();
+			}
 		}
 	}
 	
@@ -68,5 +71,16 @@ public class SessionSocket {
 			return System.currentTimeMillis() - pingSent;
 		}
 		return 0;
+	}
+
+	/** Drops this socket from its bridge session so a closed connection cannot keep the session alive. */
+	void detach()
+	{
+		BridgeSession owner = session;
+		session = null;
+		if (owner != null)
+		{
+			owner.removeSessionSocket(appId, this);
+		}
 	}
 }
