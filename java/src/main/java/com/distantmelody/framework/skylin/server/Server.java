@@ -1,8 +1,5 @@
 package com.distantmelody.framework.skylin.server;
 
-import java.awt.Font;
-import java.awt.FontFormatException;
-import java.awt.GraphicsEnvironment;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
@@ -168,19 +165,6 @@ public class Server
 			{
 				e.printStackTrace();
 				System.out.println("Unable to start apache. Resolve the issue or run it in a seperate process.");
-			}
-		}
-		else if (!isWindows)
-		{
-			try //Quick solution to add mising fonts. Think of something better...
-			{
-				GraphicsEnvironment.getLocalGraphicsEnvironment().registerFont(Font.createFont(Font.TRUETYPE_FONT, new FileInputStream("lib/fonts/arial.ttf")));
-				GraphicsEnvironment.getLocalGraphicsEnvironment().registerFont(Font.createFont(Font.TRUETYPE_FONT, new FileInputStream("lib/fonts/SansSeriff.ttf")));
-				GraphicsEnvironment.getLocalGraphicsEnvironment().registerFont(Font.createFont(Font.TRUETYPE_FONT, new FileInputStream("lib/fonts/arial-black.ttf")));
-			} 
-			catch (Exception e)
-			{
-				e.printStackTrace();
 			}
 		}
 		
