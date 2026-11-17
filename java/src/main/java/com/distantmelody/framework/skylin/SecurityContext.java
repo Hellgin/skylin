@@ -1,7 +1,9 @@
 package com.distantmelody.framework.skylin;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 
 import com.distantmelody.framework.skylin.security.LoginDomain;
@@ -13,7 +15,7 @@ import com.distantmelody.framework.skylin.util.Util;
 
 public class SecurityContext 
 {
-	private ArrayList<String> roles = new ArrayList<String>();
+	private HashSet<String> roles = new HashSet<String>();
 	private String username;
 	private String systemSeperator = "_";
 	private String domain;
@@ -148,7 +150,7 @@ public class SecurityContext
 	public void logout()
 	{
 		username = null;
-		roles = new ArrayList<String>();
+		roles = new HashSet<String>();
 	}
 	
 	public String getUsername()
@@ -166,7 +168,7 @@ public class SecurityContext
 		return userInRole(role,roles);
 	}
 	
-	private boolean userInRole(String role,List<String> r)
+	private boolean userInRole(String role,Collection<String> r)
 	{
 		role = getSubstitutedRole(role);
 		return r.contains(role);
@@ -193,7 +195,7 @@ public class SecurityContext
 	
 	
 	public ArrayList<String> getRoles(){
-		return (ArrayList<String>) roles.clone();
+		return new ArrayList<String>(roles);
 	}
 
 	
