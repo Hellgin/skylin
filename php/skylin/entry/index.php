@@ -129,7 +129,7 @@
 		$mainCssVersion = is_file($mainCssFile) ? filemtime($mainCssFile) : 1;
 		$mainCss = '<link rel="stylesheet" type="text/css" href="'.htmlspecialchars($mainCssPath, ENT_QUOTES).'?v='.$mainCssVersion.'"/>';
 	}
-	$iconHref = 'skylin/images/dna.png';
+	$iconHref = 'skylin/images/skylin.png';
 	if (isset($_SESSION['STATIC_ICON']) && $_SESSION['STATIC_ICON'] != '')
 	{
 		$iconHref = ltrim($_SESSION['STATIC_ICON'], '/');

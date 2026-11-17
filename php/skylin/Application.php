@@ -410,7 +410,7 @@
 			$this->title = $title;
 		}
 
-		/** Browser tab icon. Path is relative to the web root. Unset keeps skylin/images/dna.png. */
+		/** Browser tab icon. Path is relative to the web root. Unset keeps skylin/images/skylin.png. */
 		function setIcon($icon)
 		{
 			$this->icon = $icon;
