@@ -12,45 +12,7 @@ Files under `php/skylin/dependencies` are third-party libraries and keep their o
 
 ## Maven Central
 
-```xml
-<dependency>
-  <groupId>com.distantmelody</groupId>
-  <artifactId>skylin</artifactId>
-  <version>1.0.2</version>
-</dependency>
-```
-
-`skylin` depends on `skylin-web`, and on `melody-http`, which depends on `melody-json`. `melody-http` and `melody-json` stay on the compile classpath of a project that depends only on `skylin`, so that project can import `J` and `ServiceUtil` without declaring them. `skylin-web` is pulled in transitively as `com.distantmelody:skylin-web:1.0.2:zip`, runtime scope. Maven downloads that zip and does not unpack it.
-
-Unpack it during `generate-resources`, then use the output directory as the web server document root. That is where `index.php`, `rest.php`, `restless.php`, and `skylin/` are served from. The Java backend does not take a path to these files. `SKYLIN_ROOT` in `FrameworkParams.cnf` (`key:value` lines, read with `Util.getFrameworkParam`) is a path under that document root. `SkylinBlob` prefixes blob URLs with it. Leave it empty when the unpacked zip is the document root.
-
-```xml
-<plugin>
-  <groupId>org.apache.maven.plugins</groupId>
-  <artifactId>maven-dependency-plugin</artifactId>
-  <version>3.11.0</version>
-  <executions>
-    <execution>
-      <id>unpack-skylin-web</id>
-      <phase>generate-resources</phase>
-      <goals>
-        <goal>unpack</goal>
-      </goals>
-      <configuration>
-        <artifactItems>
-          <artifactItem>
-            <groupId>com.distantmelody</groupId>
-            <artifactId>skylin-web</artifactId>
-            <version>1.0.2</version>
-            <type>zip</type>
-            <outputDirectory>${project.build.directory}/skylin-web</outputDirectory>
-          </artifactItem>
-        </artifactItems>
-      </configuration>
-    </execution>
-  </executions>
-</plugin>
-```
+Depend on `com.distantmelody:skylin:1.0.2` from Maven Central. `skylin` depends on `skylin-web`, and on `melody-http`, which depends on `melody-json`. `melody-http` and `melody-json` stay on the compile classpath of a project that depends only on `skylin`, so that project can import `J` and `ServiceUtil` without declaring them. `skylin-web` is pulled in transitively as `com.distantmelody:skylin-web:1.0.2:zip`, runtime scope. Maven downloads that zip but does not unpack it, so the project has to unpack it. Use the `unpack` goal of `maven-dependency-plugin` bound to `generate-resources`, with `com.distantmelody:skylin-web:1.0.2` (type `zip`) as the artifact and `${project.build.directory}/skylin-web` as the output directory. Then use that output directory as the web server document root. That is where `index.php`, `rest.php`, `restless.php`, and `skylin/` are served from. The Java backend does not take a path to these files. `SKYLIN_ROOT` in `FrameworkParams.cnf` (`key:value` lines, read with `Util.getFrameworkParam`) is a path under that document root. `SkylinBlob` prefixes blob URLs with it. Leave it empty when the unpacked zip is the document root.
 
 ```
 mvn test
