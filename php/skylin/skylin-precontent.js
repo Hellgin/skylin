@@ -1331,8 +1331,10 @@ eventHandlers['.tab']['click'] = function(event)
     resizeTables($(this).parent());
     
     //This is a hack to work around an issue in chrome regarding iframes and scrollbars
-	$d = $(this).parent().children().last();
-    if ($d.children().first().children().first().children().first()[0].tagName == 'IFRAME')
+	var $d = $(this).parent().children().last();
+    //A tab that is not rendered yet, or has shallow content, has no element three levels down.
+    var inner = $d.children().first().children().first().children().first()[0];
+    if (inner && inner.tagName == 'IFRAME')
     {
     	$d[0].style.zoom = 1.03;
     	setTimeout(function(){$d[0].style.zoom = 1; }, 50);
