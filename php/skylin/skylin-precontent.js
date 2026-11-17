@@ -1407,11 +1407,26 @@ eventHandlers['.splitter_bar_reverse300'] = eventHandlers['.splitter_bar_reverse
 eventHandlers['.tab_close'] = {};
 eventHandlers['.tab_close']['click'] = function(event)
 {
-	//alert($(this).attr("id"));
+	// Same choice as TabStrip::removeTabBySeq: the tab to the right, or to the left when closing the last one.
+	// The server response removes the tab and checks the same radio.
+	var tab = $(this).closest('li');
+	if (tab.children('input.tab').prop('checked'))
+	{
+		var next = tab.nextAll('li').first();
+		if (next.length == 0)
+		{
+			next = tab.prevAll('li').first();
+		}
+		if (next.length > 0)
+		{
+			next.children('input.tab').prop('checked', true);
+			resizeTables(next);
+		}
+	}
+	tab.hide();
 	var ajaxurl = 'skylin/TabStrip.php';
-	data =  {'close': $(this).attr("id")};
-	$.post(ajaxurl, data,response);
-	
+	var data = {'close': $(this).attr("id")};
+	$.post(ajaxurl, data, response);
 };
 
 eventHandlers['.search_lov_table-row'] = {};
