@@ -214,6 +214,16 @@
 				$this->create();
 			}
 
+			// The websocket is registered on the top application id printed into the page.
+			$topId = $this->getTopApplication()->getApplicationId();
+			foreach ($this->applicationModules as $module)
+			{
+				if ($module != null)
+				{
+					$module->setTopFrontEndApplicationId($topId);
+				}
+			}
+
 			$c = $this->getContext();
 			$c['application'] = $this;
 
