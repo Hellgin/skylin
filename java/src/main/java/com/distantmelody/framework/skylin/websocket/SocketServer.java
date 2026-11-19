@@ -8,6 +8,7 @@ import java.nio.ByteBuffer;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.java_websocket.WebSocket;
+import org.java_websocket.exceptions.WebsocketNotConnectedException;
 import org.java_websocket.handshake.ClientHandshake;
 import org.java_websocket.server.WebSocketServer;
 
@@ -49,8 +50,7 @@ public class SocketServer extends WebSocketServer{
 		if (bs == null)
 		{
 			//System.out.println("Bridge Session not found. forcing client refresh");
-			websocketSession.send("FORCE_REFRESH");
-			websocketSession.close();
+			forceRefresh(websocketSession);
 			return;
 		}
     	
@@ -60,8 +60,7 @@ public class SocketServer extends WebSocketServer{
 			if (am == null)
 			{
 				System.out.println("session " + m[2] + " sent message to non existing am. telling client to refresh now.");
-				websocketSession.send("FORCE_REFRESH");
-				websocketSession.close();
+				forceRefresh(websocketSession);
 				return;
 			}
 			byte[] response = am.receiveBinaryMessage(message,m[4]);
@@ -79,8 +78,7 @@ public class SocketServer extends WebSocketServer{
     		if (bs == null)
     		{
     			//System.out.println("Bridge Session not found. forcing client refresh");
-    			websocketSession.send("FORCE_REFRESH");
-    			websocketSession.close();
+    			forceRefresh(websocketSession);
     			return;
     		}
     		
@@ -90,8 +88,7 @@ public class SocketServer extends WebSocketServer{
     			if (am == null)
     			{
     				System.out.println("session " + m[2] + " sent message to non existing am. telling client to refresh now.");
-    				websocketSession.send("FORCE_REFRESH");
-    				websocketSession.close();
+    				forceRefresh(websocketSession);
     				return;
     			}
     			byte[] response = am.receiveMessage(J.fromString(m[5]),m[4]);
@@ -141,6 +138,19 @@ public class SocketServer extends WebSocketServer{
     public void onError(WebSocket session,Exception ex) {
     	ex.printStackTrace();
     }
+
+	/** The browser is already gone, so telling it to refresh cannot succeed and is not a server error. */
+	private void forceRefresh(WebSocket websocketSession)
+	{
+		try
+		{
+			websocketSession.send("FORCE_REFRESH");
+			websocketSession.close();
+		}
+		catch (WebsocketNotConnectedException e)
+		{
+		}
+	}
     
     public boolean isClosed()
     {
