@@ -127,6 +127,7 @@ public class BridgeListener implements Runnable {
         try 
         {
 			socketServer = new SocketServer(1001,500);
+			socketServer.setReuseAddr(true);
 			socketServer.start();
 		} 
         catch (UnknownHostException e) 

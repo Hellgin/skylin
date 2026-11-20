@@ -8,6 +8,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
@@ -271,8 +272,9 @@ public class Server
         	ServerSocket socket = null;
 
         	    try {
-        	        socket = new ServerSocket(port);
+        	        socket = new ServerSocket();
         	        socket.setReuseAddress(true);
+        	        socket.bind(new InetSocketAddress(port));
         	      } catch (Exception e) {
         	    	  portAvailable = false;
         	    	  System.out.println("port " + port + " is not available, retrying in 20 seconds");
