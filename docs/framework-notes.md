@@ -119,8 +119,9 @@ checked against the code in this repository.
 ### Java backend
 
 * MySQL support in `DatabaseConnector` (see [configuration.md](configuration.md#datasourcejson)).
-* Oracle `ROWID` handling and `setBindVarArray` were removed from `View`, `EditView` and `EditViewRowDeleted`. Oracle
-  remains a datasource type.
+* Oracle `ROWID` handling was removed from `EditView` and `EditViewRowDeleted`. `View.setBindVarArray` builds an
+  `oracle.sql.ARRAY` by reflection, so the framework does not compile against the Oracle driver. Calling it without
+  that driver fails. Oracle remains a datasource type.
 * `Short`, `Float` and `BigInteger` columns become `BigDecimal` too (the original widened `Integer`, `Double` and
   `Long`), and `LocalDateTime` / `LocalDate` columns are mapped to `Timestamp`, which is what the MySQL driver returns for
   `DATETIME` / `DATE`.

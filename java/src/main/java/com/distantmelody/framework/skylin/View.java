@@ -636,6 +636,35 @@ public class View implements SkylinBridgeVirtualMethods
 			throw new SkylinException(getAM(),"No bind var named " + name + " exists in view object " + getClass().getSimpleName());
 		}
 	}
+
+	/**
+	 * Binds an Oracle collection ({@code oracle.sql.ARRAY}) for a driver that is not on this framework's compile classpath.
+	 * The descriptor and array are created by reflection. A database or driver that has neither
+	 * {@code getInnermostDelegate} nor {@code oracle.sql.ARRAY} fails here.
+	 */
+	public void setBindVarArray(String name, String type, Object value, Connection con)
+	{
+		Object insertParameter = null;
+		Class arrayClass = null;
+		try
+		{
+			Method innermost = con.getClass().getMethod("getInnermostDelegate", new Class[]{});
+			innermost.setAccessible(true);
+			Connection raw = (Connection) innermost.invoke(con, new Object[]{});
+			Class descriptorClass = Class.forName("oracle.sql.ArrayDescriptor");
+			Method createDescriptor = descriptorClass.getMethod("createDescriptor", String.class, Connection.class);
+			Object descriptor = createDescriptor.invoke(null, type, raw);
+			arrayClass = Class.forName("oracle.sql.ARRAY");
+			insertParameter = arrayClass.getConstructor(descriptorClass, Connection.class, Object.class)
+				.newInstance(descriptor, raw, value);
+		}
+		catch (Exception e)
+		{
+			Throwable reported = e.getCause() == null ? e : e.getCause();
+			am.error(reported.getMessage() == null ? reported.toString() : reported.getMessage());
+		}
+		setBindVar(name, arrayClass, insertParameter);
+	}
 	
 	public void setBindVar(String name, Class type) 
 	{
