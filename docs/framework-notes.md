@@ -40,9 +40,16 @@ checked against the code in this repository.
 * **`ModalPanel`** renders closed after a refresh, unless `open()` follows the refresh.
 * **Button permission checks run on the server.** `Button::click` does nothing while `setEditableE` is false or the
   button is not rendered.
+* **`Label` takes its caption in the constructor** (`new Label('text')`). It has no `setValueE`. A method it does not
+  have is forwarded to the application, so calling `setValueE` on a label does not store text. A note whose text
+  changes is a `TextField`.
+* **`setProp` keeps the value it is given.** `setProp('row', $row)` still holds that object after the view is cleared
+  and filled again. `setPropE` stores an expression and evaluates it each time the component renders, so a single
+  current row is `setPropE('row', ...)` returning `getFirst()`. Share that row across siblings with a `Group` that has
+  `noTag()`.
 * **The frontend relies on undefined keys and properties reading as null.** `InitRequest.php` sets
   `error_reporting(E_ERROR | E_PARSE)` and `display_errors=0`, so a warning from a screen and one from the framework both
-  stay out of the page. A blank area usually means a fatal error; read the PHP error log.
+  stay out of the page. A blank area usually means a fatal error. It is written to the PHP error log and to SLF4J.
 
 ### Views and data
 
@@ -50,6 +57,22 @@ checked against the code in this repository.
   a tab or a line break, and replaces it with `?` using `String.replaceFirst`. A colon outside single quotes always
   starts a bind, including PostgreSQL's `::` cast; use `cast(x as type)`. Bind names become camelCase.
 * **`setBindVar` throws** when the view has no bind of that name.
+* **`setBindVarArray(name, oracleType, value, connection)`** binds an Oracle collection. It unwraps the pool connection
+  with `getInnermostDelegate`, then builds `oracle.sql.ArrayDescriptor` and `oracle.sql.ARRAY` by reflection and binds
+  that array. The framework does not compile against the Oracle driver. A connection or driver without those classes
+  reports the failure with `am.error` and still calls `setBindVar`, usually with a null array.
+* **A query writes columns straight into `row.values`.** It does not call `setValue` or `setValueInternal`. An override
+  of `setValue` runs when code calls `setValue`, including a user edit through `setValueFromFrontEnd`, and does not run
+  when the row is loaded.
+* **`EditViewRow.setValueInternal` returns immediately** when the new value equals the current one, so the column is
+  not stored again and not marked modified. `setValue` calls that and then continues, so code after `super.setValue`
+  still runs for an equal value. Read the previous value before `super.setValue`.
+* **`getViewObject` works after `setDataSource`.** That call indexes the views (`initInternal`) and then runs `init()`.
+  The AM constructor runs before it, so `getViewObject` in the constructor fails.
+* **A row class filled by a query** must be concrete and have a public constructor that takes the `View`. A nested
+  class used from another package must be public.
+* **`SqlUtil.safeClose` rolls the connection back.** A write on a connection from `getNewConnection` is kept only when
+  the code commits before that close.
 * **Column generation probes the query** with `select * from (<query>) col_gen_sub where 1 = 2`, `limit ?` as `limit 1`,
   `offset ?` as `offset 0`, and every other `?` as `null`, including a `?` inside a string literal. A failure prints
   "Error generating columns in View <name>" after the SQL error.
@@ -83,7 +106,21 @@ checked against the code in this repository.
 * **Download links** (`SkylinBlob.getUrl`) are single-use and expire after 10 seconds.
 * **`AM.eval(code)` needs `BACKEND_EVAL:true`.** While it is off, `eval` logs "Backend eval is disabled" and returns
   null. Outside a bridge request it posts to `http://localhost/skylin/websocket/BackendEval.php`, which needs a web
-  server answering there with a free worker.
+  server answering there with a free worker. A same-request eval sends the code on the bridge and does not wait for a
+  result, so a PHP exception inside it never comes back to Java.
+* **A failed `eval` is logged twice.** `InitRequest.php` catches an uncaught exception, including one from a handler
+  `eval`, writes it to the PHP error log and to `com.distantmelody.framework.skylin.util.Log.error`, and answers HTTP
+  500 when the headers are still open. `Application::backendEval` catches its own failure, logs it the same way, and
+  does not throw, so the bridge call that asked for the eval can finish.
+* **Framework messages go through SLF4J**, one logger per class. PHP calls
+  `java('com.distantmelody.framework.skylin.util.Log')->error($message)` (also `info`, `warn` and `debug`).
+  `Out::println` is `FrontEndOut` at info. The jar ships `slf4j-api` and no binding; without a binding those lines are
+  discarded. `LOG_PATH` still copies standard output and standard error into the dated files, and each complete line is
+  also passed to SLF4J (`skylin.stdout` at info, `skylin.stderr` at error). A line written by an SLF4J appender is not
+  passed back.
+* **The WebSocket server sets reuse address**, and the startup probe binds port 1001 with `SO_REUSEADDR`, so a restart
+  can listen while connections from the previous process are still closing. If the port still cannot be bound, startup
+  waits and retries every 20 seconds.
 * **Classes under `APPLICATION_PACKAGES` must be in `bin/`.** A class that is missing there does not load, even when it
   is on the classpath. Entries of `APPLICATION_PACKAGES` are not trimmed.
 * **`SecurityContext.login(user, domain)` and `login(user, options)` without `LoginPassword` do not check a password.**

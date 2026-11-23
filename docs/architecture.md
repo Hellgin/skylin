@@ -191,7 +191,9 @@ function registered with `register()`, then forwards to the first AM.
 * **Reply (JVM to PHP):** 7 ASCII hex digits `M`, then `M` bytes: a type character and the reply. Type `3` is the reply
   itself. Type `4` is the path of a file that holds a reply over 1 MB (only when `UPLOAD_TMP` is set).
 * **Callbacks.** While a call runs, the JVM can ask PHP to run code for an application (`1<appId>,<code>`, used by
-  `AM.eval` when `BACKEND_EVAL` is on). PHP runs it and the call continues.
+  `AM.eval` when `BACKEND_EVAL` is on). PHP runs it on a new bridge connection and the call continues. The JVM does not
+  wait for the result of that eval. A failure in it is written to the PHP error log and to SLF4J, and the Java call
+  does not see the exception.
 * **Bytes, not characters.** Java reads a frame as `byte[]` (`ByteReader`) and decodes UTF-8 once at each leaf value.
   Replies are encoded once (`ByteWriter`). Session data is kept as bytes.
 * An idle connection is closed after 10 seconds.
@@ -211,7 +213,9 @@ function registered with `register()`, then forwards to the first AM.
 
 ## WebSocket
 
-* The JVM runs a WebSocket server on port 1001 (`SocketServer`, Java-WebSocket).
+* The JVM runs a WebSocket server on port 1001 (`SocketServer`, Java-WebSocket) with address reuse, so a restart can
+  listen while connections from the previous process are still closing. The startup probe binds the same way and, if
+  the port still cannot be taken, retries every 20 seconds.
 * The browser connects to the page's host on port 80 (http) or 443 (https), at the page path followed by
   `SessionSocket`. For a page at `/` that is `/SessionSocket`, which the web server proxies to
   `ws://127.0.0.1:1001/SessionSocket`. With `WEB_SOCKET_ALT_PORT:true` the browser connects to `ws://<host>:1001`

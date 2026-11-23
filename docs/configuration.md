@@ -179,4 +179,5 @@ The bridge socket path does not depend on the working directory; see
 * `default_charset = "UTF-8"`.
 * Skylin sets `error_reporting(E_ERROR | E_PARSE)` and `display_errors=0` in `InitRequest.php` for its own requests,
   because the frontend relies on undefined keys and properties reading as null. Keep `log_errors` on with an
-  `error_log` file, which is where a failing screen leaves its message.
+  `error_log` file. An uncaught exception, including a failed `eval`, is written there and to SLF4J
+  (`com.distantmelody.framework.skylin.util.Log`).

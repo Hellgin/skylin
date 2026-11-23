@@ -38,6 +38,13 @@ DOM updates.
   Leave a number a number; use `new Date('col')` for dates.
 * **Validation lives in the row**: `ViewRow.validate(name, value, serverValue)` calls `validationError(sentence)`. After
   a failed save, call PHP `validate()` and refresh: the fields draw their own errors.
+* **A query does not call `setValue`.** It writes the columns directly. An override of `setValue` runs for a user edit
+  and for a Java call, not when the row is loaded.
+* **`getViewObject` is not available in the AM constructor.** `setDataSource` indexes the views and then calls `init()`.
+* **Oracle array binds** are `View.setBindVarArray`. It uses reflection and does not put the Oracle driver on the
+  framework classpath. Without that driver the call fails.
+* **Log through SLF4J.** PHP uses `java('com.distantmelody.framework.skylin.util.Log')`. A failed `eval` is written to
+  the PHP error log and to that logger. `LOG_PATH` is a legacy copy of standard output and error.
 * **Component ids** may not contain `x`, `X` or `$`.
 * **Refresh what changed.** A handler that changes data calls `->refresh()` (or `refreshInRow($row)`) on the components
   that show it. Nothing redraws by itself.

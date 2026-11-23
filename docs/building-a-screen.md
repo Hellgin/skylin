@@ -51,7 +51,9 @@ $this->add($button);
 
 * `$this` is the `Application` being built. Add components with `add()`; it returns the component it was given, so
   `$this->add(new Group())->addClass('toolbar')` works.
-* `setValue('text')` shows a constant. `new Label('text')` is the plain caption component.
+* `setValue('text')` shows a constant. `new Label('text')` is the plain caption component. The constructor needs that
+  text. A label has no `setValueE`; a method it does not have is forwarded to the application and does not change the
+  caption. A note whose text changes is a `TextField`.
 * Open it with `index.php?hello/hello`. A plain reload of the page keeps the screen that is in the session. Append `!`
   (`index.php?hello/hello!`) to build it again from the file.
 
@@ -267,14 +269,19 @@ public class StatusList extends View
   class.
 * `getValue` / `setValue` are the normal accessors. `getValueInternal` / `setValueInternal` bypass an override of
   `getValue` / `setValue` in a row class.
+* A query writes each column straight into the row. It does not call `setValue`. An override of `setValue` runs for a
+  user edit and for a Java call, and does not run when the row is loaded. On an `EditViewRow`, `setValueInternal`
+  returns without marking the column when the new value equals the current one, and code after `super.setValue` still
+  runs. Read the previous value before `super.setValue`.
 
 ## 3. Search form and results table
 
 The pattern for "criteria on top, results below":
 
 * A **form view** with columns and no query holds the criteria: one row, created in its `init()`. Bind the fields to
-  it with `new TextField('col')`, `new Date('col')`, `new ChoiceLov('col')`, `new SearchLov('col')`, and put the row
-  on a `Group` with `setProp('row', ...)`.
+  it with `new TextField('col')`, `new Date('col')`, `new ChoiceLov('col')`, `new SearchLov('col')`. `setProp('row', $row)`
+  keeps that object. When the view is cleared and filled again, bind with `setPropE('row', ...)` returning `getFirst()`,
+  on a `Group` with `noTag()` when several parts of the page share the row.
 * A **list view** whose query has optional binds: `(:x is null or t.col = :x)`.
 * The search button calls a method that validates the criteria, sets the binds and runs the query, then refreshes the
   table.

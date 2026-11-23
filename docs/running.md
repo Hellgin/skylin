@@ -85,7 +85,9 @@ java -Djava.net.preferIPv4Stack=true -cp "lib/*" com.distantmelody.framework.sky
 * slf4j-api comes without a binding. Add one (for example slf4j-simple) to see the framework's log lines.
 * junixsocket unpacks its native library to a temporary directory at start. `-Dorg.newsclub.net.unix.library.tmpdir=<dir>`
   chooses the directory.
-* At start the JVM waits until port 1001 is free (and port 1400 when it uses TCP), reads the configuration, runs
+* At start the JVM probes port 1001 with address reuse (and port 1400 when it uses TCP), so a restart can listen while
+  connections from the previous process are still closing. If the port still cannot be bound it retries every 20
+  seconds. It then reads the configuration, runs
   `CONFIG_CLASS`, opens the bridge and the WebSocket server, starts `STARTUP_THREAD`, and prints
   `Server is ready. Startup time: ...`.
 * Stop it with a normal shutdown (Ctrl+C, SIGTERM): the shutdown hook removes the socket file. A killed JVM leaves the
