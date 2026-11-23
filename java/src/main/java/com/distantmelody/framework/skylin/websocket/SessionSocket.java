@@ -1,10 +1,14 @@
 package com.distantmelody.framework.skylin.websocket;
 
 import org.java_websocket.WebSocket;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.distantmelody.framework.skylin.bridge.BridgeSession;
 
 public class SessionSocket {
+	private static final Logger LOG = LoggerFactory.getLogger(SessionSocket.class);
+
 	BridgeSession session;
 	public WebSocket websocketSession;
 	boolean closed;
@@ -16,7 +20,7 @@ public class SessionSocket {
 	
     public void sendBytes(byte[] data)
     {
-    	System.out.println("sending binary websocket: " + data.length);
+    	LOG.debug("sending binary websocket: " + data.length);
     	websocketSession.send(data);
     }
     

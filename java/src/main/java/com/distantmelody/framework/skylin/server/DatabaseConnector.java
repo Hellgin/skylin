@@ -4,8 +4,13 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 public class DatabaseConnector implements Runnable
 {
+	private static final Logger LOG = LoggerFactory.getLogger(DatabaseConnector.class);
+
 	SkylinDataSource ds;
 	Thread thread;
 	
@@ -47,7 +52,7 @@ public class DatabaseConnector implements Runnable
 					}
 					else
 					{
-						System.out.println("Unsuported or unknown database type:" + ds.type);
+						LOG.error("Unsuported or unknown database type:" + ds.type);
 						System.exit(0);
 					}
 					con = DriverManager.getConnection(connectionString, ds.username, ds.password);
@@ -57,7 +62,7 @@ public class DatabaseConnector implements Runnable
 					{
 						databaseIssue = false;
 						databaseIssueRetryCount = 0;
-						System.out.println("The database used by " + ds.name + " is working again.");
+						LOG.info("The database used by " + ds.name + " is working again.");
 					}
 				} 
 				catch (SQLException e) {
@@ -65,12 +70,12 @@ public class DatabaseConnector implements Runnable
 					{
 						databaseIssue = true;
 						dataBaseIssueFirstTime = System.currentTimeMillis();
-						System.out.println("Error getting connections from the database used by " + ds.name);
+						LOG.error("Error getting connections from the database used by " + ds.name, e);
 					}
 					else
 					{
 						databaseIssueRetryCount++;
-						System.out.println("Error getting connections from the database used by " + ds.name + " - " + databaseIssueRetryCount + " min");
+						LOG.error("Error getting connections from the database used by " + ds.name + " - " + databaseIssueRetryCount + " min");
 					}
 					try{Thread.sleep(Math.max(0, dataBaseIssueFirstTime+(databaseIssueRetryCount+1)*(60*1000)-System.currentTimeMillis()));} catch (InterruptedException ee) {}
 					continue outer;

@@ -15,6 +15,9 @@ import java.util.regex.Pattern;
 import javax.servlet.ServletContext;
 import javax.servlet.http.HttpServlet;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.distantmelody.framework.skylin.server.Server;
 import com.distantmelody.framework.skylin.server.SkylinServletConfig;
 import com.distantmelody.framework.skylin.services.ServiceContainer;
@@ -36,6 +39,8 @@ import com.distantmelody.framework.skylin.services.SkylinServletOutputStream;
  * cut out, because every length in the protocol counts the bytes of the UTF-8 encoding (PHP's strlen).
  */
 public class BridgeConnection implements Runnable{
+
+	private static final Logger LOG = LoggerFactory.getLogger(BridgeConnection.class);
 
 	Thread thread;
 	Socket socket;
@@ -142,7 +147,7 @@ public class BridgeConnection implements Runnable{
 			catch (BadFrameException e)
 			{
 				keepAlive = false;//the stream cannot be trusted any more
-				System.out.println("Bridge connection closed: " + e.getMessage());
+				LOG.warn("Bridge connection closed: " + e.getMessage());
 			}
 			catch (Exception e)
 			{
@@ -383,7 +388,7 @@ public class BridgeConnection implements Runnable{
 		}
 		else if ("c".equals(command))
 		{
-			System.out.println(in.string());
+			LOG.info(in.string());
 		}
 		else if ("d".equals(command))
 		{

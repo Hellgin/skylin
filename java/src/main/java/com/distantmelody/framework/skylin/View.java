@@ -18,12 +18,17 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.regex.Pattern;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.distantmelody.library.json.J;
 import com.distantmelody.framework.skylin.bridge.SkylinBridgeVirtualMethods;
 import com.distantmelody.framework.skylin.util.SqlUtil;
 
 public class View implements SkylinBridgeVirtualMethods
 {
+	private static final Logger LOG = LoggerFactory.getLogger(View.class);
+
 	private String query;
 	private String registeredQuery;
 	protected Class rowType = null;
@@ -1425,7 +1430,7 @@ public class View implements SkylinBridgeVirtualMethods
 		if (columnNames.length > 0 && columnTypes.length != columnNames.length)
 		{
 			//throw new SkylinException(getAM(),"column names and columnTypes have different lengths in view object " + getClass().getName());
-			System.out.println("WARNING: " + "column names and columnTypes have different lengths in view object " + getClass().getName());
+			LOG.warn("column names and columnTypes have different lengths in view object " + getClass().getName());
 		}
 	}
 	
@@ -1435,7 +1440,7 @@ public class View implements SkylinBridgeVirtualMethods
 		if (columnTypes.length > 0 && columnTypes.length != columnNames.length)
 		{
 			//throw new SkylinException(getAM(),"column names and columnTypes have different lengths in view object " + getClass().getName());
-			System.out.println("WARNING: " + "column names and columnTypes have different lengths in view object " + getClass().getName());
+			LOG.warn("column names and columnTypes have different lengths in view object " + getClass().getName());
 		}
 		if (rowType == null && setRowTypeLater != null)
 		{
@@ -1446,7 +1451,7 @@ public class View implements SkylinBridgeVirtualMethods
 	
 	public void addColumn(String name, Class type)
 	{
-		System.out.println("addColumn: todo");
+		LOG.warn("addColumn: todo");
 	}
 	
 	public String[] getColumnNames()

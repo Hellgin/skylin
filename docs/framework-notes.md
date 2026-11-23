@@ -118,6 +118,7 @@ checked against the code in this repository.
 
 ### Java backend
 
+* Framework messages go through SLF4J. `LOG_PATH` still copies standard output and standard error into the dated files, and each of those lines is also passed to SLF4J. An uncaught PHP exception is written to the PHP error log and to `com.distantmelody.framework.skylin.util.Log`.
 * MySQL support in `DatabaseConnector` (see [configuration.md](configuration.md#datasourcejson)).
 * Oracle `ROWID` handling was removed from `EditView` and `EditViewRowDeleted`. `View.setBindVarArray` builds an
   `oracle.sql.ARRAY` by reflection, so the framework does not compile against the Oracle driver. Calling it without

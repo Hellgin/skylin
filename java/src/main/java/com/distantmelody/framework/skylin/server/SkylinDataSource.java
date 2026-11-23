@@ -125,7 +125,7 @@ public class SkylinDataSource implements DataSource{
 			}
 			else
 			{
-				System.out.println("WARNING: Datasource " + name + " is out of available connections. Thread is being blocked.");
+				LOG.warn("Datasource " + name + " is out of available connections. Thread is being blocked.");
 				try{Thread.sleep(5000);}catch (InterruptedException e){e.printStackTrace();}
 			}
 		}

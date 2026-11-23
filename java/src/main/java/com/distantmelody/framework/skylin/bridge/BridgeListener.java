@@ -15,10 +15,14 @@ import javax.servlet.ServletContextListener;
 import org.newsclub.net.unix.AFUNIXServerSocket;
 import org.newsclub.net.unix.AFUNIXSocket;
 import org.newsclub.net.unix.AFUNIXSocketAddress;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.distantmelody.framework.skylin.websocket.SocketServer;
 
 public class BridgeListener implements Runnable {
+	private static final Logger LOG = LoggerFactory.getLogger(BridgeListener.class);
+
     private ServletContext context = null;
     Thread thread;
 	ServerSocket serverSocket;
@@ -63,7 +67,7 @@ public class BridgeListener implements Runnable {
 	private void deleteSocketFile()
 	{
 		if (socketFile == null) return;
-		try {Files.deleteIfExists(socketFile.toPath());} catch (IOException e) {System.out.println("Unable to delete bridge socket file " + socketFile + ": " + e);}
+		try {Files.deleteIfExists(socketFile.toPath());} catch (IOException e) {LOG.warn("Unable to delete bridge socket file " + socketFile + ": " + e);}
 	}
 
 	ContinuousLogic continuousLogic;
@@ -91,7 +95,7 @@ public class BridgeListener implements Runnable {
 			if (useTcpTransport())
 			{
 				serverSocket = new ServerSocket(TCP_PORT, 50, java.net.InetAddress.getLoopbackAddress());
-				System.out.println("Bridge listening on TCP 127.0.0.1:" + TCP_PORT + " (no Unix socket support on this Windows). Applications will run slower.");
+				LOG.warn("Bridge listening on TCP 127.0.0.1:" + TCP_PORT + " (no Unix socket support on this Windows). Applications will run slower.");
 			}
 			else
 			{
@@ -111,7 +115,7 @@ public class BridgeListener implements Runnable {
 				deleteSocketFile();//a crashed or killed server leaves its socket file behind (always on Windows)
 				serverSocket = AFUNIXServerSocket.newInstance();
 				serverSocket.bind(AFUNIXSocketAddress.of(socketFile));
-				System.out.println("Bridge listening on unix socket " + socketFile);
+				LOG.info("Bridge listening on unix socket " + socketFile);
 			}
 		} 
 		catch (IOException e) 

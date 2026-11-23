@@ -12,11 +12,16 @@ import org.java_websocket.exceptions.WebsocketNotConnectedException;
 import org.java_websocket.handshake.ClientHandshake;
 import org.java_websocket.server.WebSocketServer;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.distantmelody.framework.skylin.AM;
 import com.distantmelody.framework.skylin.bridge.BridgeSession;
 import com.distantmelody.library.json.J;
 
 public class SocketServer extends WebSocketServer{
+
+	private static final Logger LOG = LoggerFactory.getLogger(SocketServer.class);
 	
 	ConcurrentHashMap<WebSocket,SessionSocket> sockets = new ConcurrentHashMap<WebSocket,SessionSocket>();
 
@@ -59,7 +64,7 @@ public class SocketServer extends WebSocketServer{
 			AM am = (AM) bs.getObject(Integer.parseInt(m[3]));
 			if (am == null)
 			{
-				System.out.println("session " + m[2] + " sent message to non existing am. telling client to refresh now.");
+				LOG.warn("session " + m[2] + " sent message to non existing am. telling client to refresh now.");
 				forceRefresh(websocketSession);
 				return;
 			}
@@ -87,7 +92,7 @@ public class SocketServer extends WebSocketServer{
     			AM am = (AM) bs.getObject(Integer.parseInt(m[3]));
     			if (am == null)
     			{
-    				System.out.println("session " + m[2] + " sent message to non existing am. telling client to refresh now.");
+    				LOG.warn("session " + m[2] + " sent message to non existing am. telling client to refresh now.");
     				forceRefresh(websocketSession);
     				return;
     			}

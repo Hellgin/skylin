@@ -25,6 +25,9 @@ import javax.servlet.ServletContextEvent;
 import javax.servlet.ServletContextListener;
 import javax.sql.DataSource;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.distantmelody.framework.skylin.SecurityContext;
 import com.distantmelody.framework.skylin.SkylinClassLoader;
 import com.distantmelody.framework.skylin.bridge.BridgeListener;
@@ -33,6 +36,8 @@ import com.distantmelody.library.json.J;
 
 public class Server 
 {
+	private static final Logger LOG = LoggerFactory.getLogger(Server.class);
+
 	public static HashMap<String,String> customParams = new HashMap<String,String>();
 	public static HashMap<String,String> frameworkParams = new HashMap<String,String>();
 	public static HashMap<String,Object> globalProperties = new HashMap<String,Object>();
@@ -108,13 +113,12 @@ public class Server
 			    System.setOut(tee);
 			    
 				file = new FileOutputStream(errPath);
-			    tee = new SplitPrintStream(file, System.err);
+			    tee = new SplitPrintStream(file, System.err, true);
 			    System.setErr(tee);
 			}
 			catch (Exception e)
 			{
-				e.printStackTrace();
-				System.out.println("unable to open log file for writing");
+				LOG.error("unable to open log file for writing", e);
 			}
 		}
 		
@@ -164,8 +168,7 @@ public class Server
 			}
 			catch(Exception e)
 			{
-				e.printStackTrace();
-				System.out.println("Unable to start apache. Resolve the issue or run it in a seperate process.");
+				LOG.error("Unable to start apache. Resolve the issue or run it in a seperate process.", e);
 			}
 		}
 		
@@ -185,7 +188,7 @@ public class Server
 			}
 		}
 		
-		System.out.println("Server is ready. Startup time: " + (System.currentTimeMillis()-startTime)+"ms");
+		LOG.info("Server is ready. Startup time: " + (System.currentTimeMillis()-startTime)+"ms");
 	}
 	
 	private static final String TASKLIST = "tasklist";
@@ -277,7 +280,7 @@ public class Server
         	        socket.bind(new InetSocketAddress(port));
         	      } catch (Exception e) {
         	    	  portAvailable = false;
-        	    	  System.out.println("port " + port + " is not available, retrying in 20 seconds");
+        	    	  LOG.warn("port " + port + " is not available, retrying in 20 seconds");
         	    	  try{Thread.sleep(20*1000);}catch (Exception e2) {}
         	      }
         	    finally

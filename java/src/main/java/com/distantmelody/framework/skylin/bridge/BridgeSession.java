@@ -196,7 +196,7 @@ public class BridgeSession
 				  }
 
 			  }
-			  System.out.println("could not find method '" + methodName + "' in '" + receiver + "' with the given parameters.");
+			  LOG.warn("could not find method '" + methodName + "' in '" + receiver + "' with the given parameters.");
 		  }
 		  return null;
 		}

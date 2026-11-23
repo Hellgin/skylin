@@ -19,7 +19,7 @@ a Unix socket at a fixed path (see [architecture.md](architecture.md#bridge-tran
 <dependency>
   <groupId>com.distantmelody</groupId>
   <artifactId>skylin</artifactId>
-  <version>1.0.4</version>
+  <version>1.0.5</version>
 </dependency>
 ```
 
@@ -147,8 +147,8 @@ ProxyPassReverse /SessionSocket ws://127.0.0.1:1001/SessionSocket
 
 ## Logs
 
-* With `LOG_PATH`, the JVM writes `backend_out <date time>.txt` and `backend_errors <date time>.txt`, one pair per start.
-* PHP errors are not shown in the page (`display_errors=0`); they go to PHP's `error_log`.
+* With `LOG_PATH`, the JVM still writes `backend_out <date time>.txt` and `backend_errors <date time>.txt`, one pair per start. That copy is legacy: each line is also passed to SLF4J. The framework's own messages go through SLF4J.
+* PHP errors are not shown in the page (`display_errors=0`). An uncaught exception, including a failed `eval`, is written to PHP's `error_log` and to SLF4J (`com.distantmelody.framework.skylin.util.Log`).
 * "Error generating columns in View X" in `backend_errors` means the view's query failed when its columns were probed.
   The database's error message is a few lines above it.
 

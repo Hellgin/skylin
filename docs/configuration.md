@@ -62,7 +62,7 @@ classpath, not from `bin/`.
 
 | Key | Value | Effect |
 |---|---|---|
-| `LOG_PATH` | a directory | Standard output and standard error are also written to `backend_out <date time>.txt` and `backend_errors <date time>.txt` there, one pair per start |
+| `LOG_PATH` | a directory | Legacy. Standard output and standard error are still written to `backend_out <date time>.txt` and `backend_errors <date time>.txt` there, one pair per start. Each complete line is also passed to SLF4J (`skylin.stdout` at info, `skylin.stderr` at error). Framework messages themselves go through SLF4J |
 | `UPLOAD_TMP` | a directory | A bridge reply over 1 MB is written to a file there and PHP reads the file. Without it, large replies go inline |
 | `BACKEND_EVAL` | `true` | Enables `AM.eval(code)` (run PHP code for the AM's application from Java) and `skylin/websocket/BackendEval.php`. Off by default; `BackendEval.php` answers 403 while it is off |
 | `SHUTDOWN_DAILY` | any value | The JVM exits at the next midnight (local time), for a supervisor to restart it |

@@ -39,4 +39,25 @@
 	{
 		$_REQUEST["SKYLIN_VALIDATE"] = $v;
 	}
+
+	function skylinLogError($message)
+	{
+		error_log($message);
+		try
+		{
+			java('com.distantmelody.framework.skylin.util.Log')->error($message);
+		}
+		catch (Throwable $ignored)
+		{
+			error_log('Could not write the error to the backend log: '.$ignored);
+		}
+	}
+
+	set_exception_handler(function (Throwable $e) {
+		skylinLogError((string) $e);
+		if (!headers_sent())
+		{
+			http_response_code(500);
+		}
+	});
 ?>

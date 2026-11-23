@@ -6,6 +6,9 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * The PHP session handler (command {@code b} of the bridge, PHP class BridgeSessionHandler): keeps the PHP session
  * files and the lock that serializes the requests of one session.
@@ -16,6 +19,8 @@ import java.nio.file.NoSuchFileException;
  */
 public class BridgeSessionHandler 
 {
+	private static final Logger LOG = LoggerFactory.getLogger(BridgeSessionHandler.class);
+
 	String savepath;
 
 	private static byte[] reply(String text)
@@ -131,9 +136,9 @@ public class BridgeSessionHandler
 
 	private byte[] gc(long max) {
 		
-		System.out.println("session gc initiated. Max = " + (max/1000f/60f/60f) + " minutes");
+		LOG.info("session gc initiated. Max = " + (max/1000f/60f/60f) + " minutes");
 		max = 3*60*60*1000;
-		System.out.println("Max Overidden to 180 minutes");
+		LOG.info("Max Overidden to 180 minutes");
 		
 		if (savepath == null) return reply("true");
 		String[] list = new File(savepath).list();
@@ -154,7 +159,7 @@ public class BridgeSessionHandler
 					if (session.isLocked() || session.lastActivity > time)continue loop;
 					session.getLock();
 				}
-				System.out.println("dropping session");
+				LOG.info("dropping session");
 				file.delete();
 				if (session != null)
 				{

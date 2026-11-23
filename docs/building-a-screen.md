@@ -754,8 +754,8 @@ $lines->add(new TextField('productName'));
 * A PHP change needs no build: open a new instance of the screen (`index.php?path!`, or a new tab in a portal).
 * A Java class under `APPLICATION_PACKAGES` is picked up when a new AM instance is created after the `.class` file in
   `bin/` changed. Instances that are already open keep their classes.
-* The PHP error log and the JVM's `backend_out` / `backend_errors` files (`LOG_PATH`) are the first place to look when a
-  screen does not render.
+* A failed `eval` is written to the PHP error log and to SLF4J. `LOG_PATH` still copies standard output and standard error
+  into `backend_out` / `backend_errors`; those files are the legacy copy.
 * The endpoints are plain POSTs, so `curl` with a cookie jar can drive a screen: `change=<field id>` with
   `value=<text>` to `skylin/TextField.php`, `click=<button id>` to `skylin/Button.php`, and the other actions listed in
   [architecture.md](architecture.md#a-request-end-to-end). Component ids change when a component is drawn again; take

@@ -2,9 +2,14 @@ package com.distantmelody.framework.skylin.bridge;
 
 import java.util.Calendar;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.distantmelody.framework.skylin.server.Server;
 
 public class ContinuousLogic implements  Runnable {
+	private static final Logger LOG = LoggerFactory.getLogger(ContinuousLogic.class);
+
     Thread thread;
 	boolean running = true;
 
@@ -14,7 +19,7 @@ public class ContinuousLogic implements  Runnable {
     {
     	if (Server.frameworkParams.get("SHUTDOWN_DAILY") != null)
     	{
-    		System.out.println(timeTilShutdown()/1000/60);
+    		LOG.info("Minutes until scheduled shutdown: " + (timeTilShutdown()/1000/60));
     		shutdownAt = System.currentTimeMillis() + timeTilShutdown();
     	}
         thread = new Thread(this);
@@ -39,7 +44,7 @@ public class ContinuousLogic implements  Runnable {
 			c++;
 			if (System.currentTimeMillis() > shutdownAt) 
 			{
-				System.out.println("Scheduled shutdown");
+				LOG.info("Scheduled shutdown");
 				System.exit(0);
 			};
 			try {Thread.sleep(1000);} catch (InterruptedException e) {e.printStackTrace();}

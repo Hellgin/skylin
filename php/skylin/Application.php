@@ -552,15 +552,7 @@
 		    }
 		    catch (Throwable $e)
 		    {
-		        out::println("backend eval failed: ". $code.' '.$e);
-		    }
-		    catch (Error $e)
-		    {
-		        out::println("backend eval failed: ". $code.' '.$e);
-		    }
-		    catch (Exception $e)//php 5 only, remove when finally dropping all php 5 support
-		    {
-		        out::println("backend eval failed: ". $code.' '.$e);
+		        skylinLogError('backend eval failed: '.$code.' '.$e);
 		    }
 		}
 		

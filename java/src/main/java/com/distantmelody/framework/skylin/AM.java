@@ -346,7 +346,7 @@ public class AM implements SkylinBridgeVirtualMethods
 	{
 		if (printErrors)
 		{
-			System.out.println(message);
+			LOG.error(message);
 		}
 		sendMessage("displaymsg","error,"+message);
 	}
@@ -355,7 +355,7 @@ public class AM implements SkylinBridgeVirtualMethods
 	{
 		if (printErrors)
 		{
-			System.out.println(message);
+			LOG.error(message);
 		}
 		sendMessage("displaymsg","fatal,"+message);	  
 	}
@@ -457,7 +457,7 @@ public class AM implements SkylinBridgeVirtualMethods
 	@Deprecated
 	public void websocketRefreshComponent(String id)
 	{
-		System.out.println("websocketRefreshComponent has been removed from AM. Use eval instead to refresh components via websockets.");
+		LOG.warn("websocketRefreshComponent has been removed from AM. Use eval instead to refresh components via websockets.");
 	}
 	
 	@Deprecated /*threadMode param not needed anymore.*/
