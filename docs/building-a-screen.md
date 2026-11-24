@@ -777,9 +777,11 @@ $lines->add(new TextField('productName'));
   dialog, a panel) can live in its own `<style>`, with every rule under the root element's class, so it comes and goes
   with the component and the shared stylesheet does not grow.
 * Every `setCom` component renders each time the template renders, even when the HTML around its binding point hides
-  it. Show and hide parts with a `setStringE` that writes `display:none` into a `style` attribute. Give a component
-  that reads data its own `setRenderedE` (a `ChoiceLov` runs its list query when it renders), and give the template a
-  `setRenderedE` while its row does not exist yet.
+  it. To keep the whole template from rendering until it is needed (a dialog before it opens, a row that does not exist
+  yet), put `setRenderedE` on the template itself rather than on each component. It then renders only a hidden `div`,
+  and its components neither render nor query. Inside a rendered template, show and hide parts with a `setStringE` that
+  writes `display:none` into a `style` attribute. Keep `setRenderedE` on a single component for a state of the data,
+  such as a button that only applies when the data allows it (`Button::click` ignores a button that is not rendered).
 * `setEventE('name', code)` plus the JavaScript call `templateEvent('name', '<skylin_comId>', data)` sends an event to
   the server. In the handler, `$this->c('eventData')` is the data.
 * Keep state in CSS classes, render the initial state on the server, and use one delegated listener on the root

@@ -29,7 +29,8 @@ checked against the code in this repository.
 * **An `Iter` or a `Group` with `noTag()`** has no element of its own. `refresh()` on it has nothing to replace;
   refresh its parent.
 * **`Template` renders every `setCom` component** each time it renders, whatever the HTML around the binding point
-  hides. Use `setRenderedE` on a component that should not render or query.
+  hides. To hold the whole template back (a dialog before it opens), put `setRenderedE` on the template, not on its
+  components.
 * **`ModalPanel::setStyle`** goes on the inner div and overrides the `.modalDialog > div` rule of `skylin.css` (400px,
   margin, padding, rounded corners, gradient).
 * **`TabStrip` identifies tabs by heading.** Two screens opened with the same heading share one tab: the second replaces
