@@ -723,11 +723,39 @@ $roots->add($node);
   method passes this row's `folderId` to the child view's bind `parentId`. With an odd number of arguments the first one
   is an instance name.
 
-## 8. Client-side behaviour with Template
+## 8. Templates: layout, look and client-side behaviour
 
-Normal components talk to the server for every click. For behaviour that happens in the browser alone (expand and
-collapse, switching inner tabs), use a `Template`: an HTML file with binding points plus your own `<style>` and
-`<script>`. Components render into the binding points, so data and security stay on the server.
+A `Template` is an HTML file with binding points plus your own `<style>` and `<script>`. Use it for a layout and look
+that belong to one part of a screen (a dialog, a panel), and for behaviour that happens in the browser alone (expand
+and collapse, switching inner tabs), since normal components talk to the server for every click.
+
+**Put regular Skylin components inside a template, and as many as you can.** Every data field, input, check box,
+button and drop-down goes into a binding point as a component (`TextField`, `Label`, `Checkbox`, `ChoiceLov`,
+`Button`, ...). So does every part that is shown or hidden, as a `Group` with `setRenderedE`, with its own components
+inside. Components escape their values, bind to the row, check editability and permissions on the server, and refresh
+like the rest of the screen. The HTML keeps only what never changes: the root element, the fixed layout and headings,
+the `<style>` and the `<script>`.
+
+```php
+$dialog = $modal->add(new Template($this->getDir() . '/template/confirm.html'));
+$dialog->setPropE('row', function () { return $this->a()->getAM('am')->getView('ConfirmForm')->getFirst(); });
+
+$warn = $dialog->setCom('warning', new Group())->addClass('warn');       // <skylin_warning>
+$warn->setRenderedE(function () { return $this->a()->getAM('am')->needsWarning(); });
+$warn->add(new TextField())->setValueE(function () { return $this->a()->getAM('am')->getWarningText(); });
+$warn->add(new Checkbox('warningAck'));
+$warn->add(new Label('I understand.'));
+```
+
+`confirm.html`: `<div id="<skylin_comId>" class="confirm"><style>.confirm .warn { border: 1px solid #e3b4b4 }</style><h3>Confirm</h3><skylin_warning></div>`
+
+A template that belongs to one screen does not have to be reusable. Write its fixed text, sizes and styles straight
+into the HTML instead of binding them. String bindings (`setString`, `setStringE`) are for what the browser needs
+before any click, such as the starting class of a part that a script opens and closes, and for a template shared by
+several screens that needs different text in the same place.
+
+The example below is client-side behaviour: the open and closed state lives in the browser, and the data is still
+components.
 
 ```php
 $page = $this->add(new Template($this->getDir() . '/template/list.html'));
@@ -775,17 +803,21 @@ $lines->add(new TextField('productName'));
   escapes it); keep the string bindings for state the browser needs before any click, such as an initial class.
 * Inline `<script>` and `<style>` run and apply when the HTML is inserted. A look that belongs to one template (a
   dialog, a panel) can live in its own `<style>`, with every rule under the root element's class, so it comes and goes
-  with the component and the shared stylesheet does not grow.
+  with the component and the shared stylesheet does not grow. Those rules may style the Skylin components inside the
+  template, including over `skylin.css` (for example `.root .label, .root .RoTextField { font-size: 10pt; white-space:
+  normal; }` against the small, cut-off default) and over classes added with `addClass`. `setStyle` on a component
+  works as well.
 * Every `setCom` component renders each time the template renders, even when the HTML around its binding point hides
   it. To keep the whole template from rendering until it is needed (a dialog before it opens, a row that does not exist
   yet), put `setRenderedE` on the template itself rather than on each component. It then renders only a hidden `div`,
-  and its components neither render nor query. Inside a rendered template, show and hide parts with a `setStringE` that
-  writes `display:none` into a `style` attribute. Keep `setRenderedE` on a single component for a state of the data,
-  such as a button that only applies when the data allows it (`Button::click` ignores a button that is not rendered).
+  and its components neither render nor query. Inside a rendered template, a part that depends on the data is a `Group`
+  with `setRenderedE` in its binding point, not a string binding that writes `display:none`. A single component keeps
+  its own `setRenderedE` for a state of the data, such as a button that only applies when the data allows it
+  (`Button::click` ignores a button that is not rendered).
 * `setEventE('name', code)` plus the JavaScript call `templateEvent('name', '<skylin_comId>', data)` sends an event to
   the server. In the handler, `$this->c('eventData')` is the data.
-* Keep state in CSS classes, render the initial state on the server, and use one delegated listener on the root
-  element, so several copies of the template (several tabs, rows) never interfere.
+* For browser-side behaviour, keep its state in CSS classes, render the starting state on the server, and use one
+  delegated listener on the root element, so several copies of the template (several tabs, rows) never interfere.
 
 ## 9. Details that matter
 

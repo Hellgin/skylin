@@ -34,6 +34,9 @@ DOM updates.
   [docs/architecture.md](docs/architecture.md#how-a-component-finds-its-row)).
 * **`Iter` is for lists.** One row is a `Group` with `setPropE('row', ...)`. A form view creates its row once in
   `init()`; load values into that row instead of `clear()` and `newRow()`.
+* **Fill a `Template` with components.** Data fields, inputs, buttons and every part that shows or hides (a `Group`
+  with `setRenderedE`) go into binding points as Skylin components. The HTML keeps only fixed layout, text, style and
+  script. A template for one screen writes its fixed values into the HTML instead of binding them.
 * **Escape through `TextField`.** It escapes by default. `Date`, `ChoiceLov`, `SearchLov` popup cells, `Label`,
   `Button` text and `Template` strings do not escape.
 * **SQL uses named binds** (`:snake_case` in the query, `setBindVar("camelCase", ...)`). Never concatenate input into
