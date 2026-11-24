@@ -64,6 +64,25 @@ types include:
 * `refresh()` renders the component again and sends it as `setdiv`. `refreshInRow($row)` does the same for the copy of
   the component drawn for one row.
 
+### How a component finds its row
+
+* **When it renders.** `renderInContext` takes the parent's context, evaluates every `setPropE` of the component and
+  merges the results over it, then renders. The row of the context gives the link id in the element id. A component
+  with `setPropE('row', ...)` therefore takes the row that exists at that moment, and so do the children it renders.
+* **When a POST arrives.** The receiving PHP file splits the element id on `x` and finds the component by its id. The
+  handler then sets the context row to `$this->r()->getView()->getRowByLinkId($linkId)` (`Button::click`,
+  `TextField::valueChange`, `Template::event`, `Group::click`, ...). `r()` is the row of the component's last render,
+  and `View.getRowByLinkId` follows the link id chain from the root view of that row.
+* **Link ids are not reused.** `newRow()` takes the view's next link id, and `clear()` does not reset the counter. An
+  element drawn for a row that was removed since finds no row, and the handler runs with the `DefaultRow`.
+* **`refresh()` uses the context of the last render.** The id it replaces is built from the row of that render. A
+  component with its own `setPropE('row', ...)` evaluates it again and draws the new row, with the new id, in place of
+  the old element. A component without one, such as a field inside that container, draws the row of its last render
+  again. `refreshInRow($row)` builds the id from the row it is given, so that row must be the one the element was
+  drawn for.
+* **No row yet.** While a `setPropE('row', ...)` answers null, `r()` returns the `DefaultRow`: link id 0, `getValue`
+  answers `''`, and other methods answer null.
+
 ### Handlers are code strings
 
 Handlers (`setActionE`, `setRenderedE`, `setValueE`, `setRowsE`, ...) are stored as PHP code strings and run with `eval`,

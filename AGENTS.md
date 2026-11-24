@@ -29,7 +29,11 @@ DOM updates.
   build `return "...";` or `return ...;`. Pass constants only, or use the `E` variant.
 * **Bind fields to columns.** `new TextField('col')` reads and writes `col` of the context row, takes its editability
   from `ViewRow.isUpdateable` and its input type from the column type. Set the row with `setProp('row', $row)` on a
-  container, or use `Iter` / `Table`, which set it per row.
+  container, or use `Iter` / `Table`, which set it per row. A row that is replaced is `setPropE('row', ...)`: it is
+  read at every render of that container, and a click finds its row by the link id in the element id (see
+  [docs/architecture.md](docs/architecture.md#how-a-component-finds-its-row)).
+* **`Iter` is for lists.** One row is a `Group` with `setPropE('row', ...)`. A form view creates its row once in
+  `init()`; load values into that row instead of `clear()` and `newRow()`.
 * **Escape through `TextField`.** It escapes by default. `Date`, `ChoiceLov`, `SearchLov` popup cells, `Label`,
   `Button` text and `Template` strings do not escape.
 * **SQL uses named binds** (`:snake_case` in the query, `setBindVar("camelCase", ...)`). Never concatenate input into

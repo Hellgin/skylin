@@ -26,7 +26,12 @@ checked against the code in this repository.
 * **`Group::add(&$com)` takes its argument by reference.** `add(new X())` works and raises a notice that the framework's
   error level hides.
 * **`Grid(x, y)`** renders exactly `x * y` cells. Fewer children leave empty cells; extra children are not rendered.
-* **An `Iter` with `noTag()`** has no element of its own. `refresh()` on it has nothing to replace; refresh its parent.
+* **An `Iter` or a `Group` with `noTag()`** has no element of its own. `refresh()` on it has nothing to replace;
+  refresh its parent.
+* **`Template` renders every `setCom` component** each time it renders, whatever the HTML around the binding point
+  hides. Use `setRenderedE` on a component that should not render or query.
+* **`ModalPanel::setStyle`** goes on the inner div and overrides the `.modalDialog > div` rule of `skylin.css` (400px,
+  margin, padding, rounded corners, gradient).
 * **`TabStrip` identifies tabs by heading.** Two screens opened with the same heading share one tab: the second replaces
   the first. `setCloseable($heading, $closeable)` looks the tab up by position as if it were the sequence number, so call
   it right after `setTab`, before any tab has been closed.
@@ -47,6 +52,12 @@ checked against the code in this repository.
   and filled again. `setPropE` stores an expression and evaluates it each time the component renders, so a single
   current row is `setPropE('row', ...)` returning `getFirst()`. Share that row across siblings with a `Group` that has
   `noTag()`.
+* **A click finds its row by the link id in the element id**, through the view of the row the component last rendered
+  (`getRowByLinkId`). `clear()` does not reset link ids, so an element drawn for a removed row finds no row and the
+  handler sees the `DefaultRow`. Draw the container with the `setPropE('row', ...)` again after replacing the row.
+* **`refresh()` reuses the context of the last render.** Only a component with its own `setPropE` reads the row
+  again. A field refreshed on its own draws the row it was last drawn with. `refreshInRow($row)` needs the row the
+  element was drawn for, because the id is built from it.
 * **The frontend relies on undefined keys and properties reading as null.** `InitRequest.php` sets
   `error_reporting(E_ERROR | E_PARSE)` and `display_errors=0`, so a warning from a screen and one from the framework both
   stay out of the page. A blank area usually means a fatal error. It is written to the PHP error log and to SLF4J.

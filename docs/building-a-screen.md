@@ -175,6 +175,9 @@ $line->add(new TextField('city'));
   (`ViewRow.isUpdateable`), and its input type comes from the row (`getHtmlInputType`: `number` for a number column).
 * `Iter` renders its children once per row, with that row as the context row. `setViewE` returns a view, `setRowsE` a
   list of rows, `setView` / `setRows` take them directly.
+* Use `Iter` for a list only. A screen that shows one row (a detail form, a criteria row) binds a `Group` with
+  `setPropE('row', ...)` returning `getFirst()`, with `noTag()` when it should add no element. An `Iter` over a one-row
+  view adds nothing.
 * `getAM()` with no name is the first AM the screen added.
 * The datasource name is one registered at startup (see [configuration.md](configuration.md#datasources)).
 
@@ -282,6 +285,8 @@ The pattern for "criteria on top, results below":
   it with `new TextField('col')`, `new Date('col')`, `new ChoiceLov('col')`, `new SearchLov('col')`. `setProp('row', $row)`
   keeps that object. When the view is cleared and filled again, bind with `setPropE('row', ...)` returning `getFirst()`,
   on a `Group` with `noTag()` when several parts of the page share the row.
+* That row lives as long as the screen. Load new values into it with `setValue` (or `setValueInternal`), not with
+  `clear()` and `newRow()`.
 * A **list view** whose query has optional binds: `(:x is null or t.col = :x)`.
 * The search button calls a method that validates the criteria, sets the binds and runs the query, then refreshes the
   table.
@@ -412,6 +417,33 @@ first call only for what the column cannot hold.
 
 `Date` parses `dd-MMM-yyyy` itself; a value it cannot parse is refused with "Invalid Date Format" and never reaches the
 row.
+
+### A choice that does not change its column
+
+A field can pass the user's value somewhere other than its column. An example is a drop-down that opens a
+confirmation, where the column must keep its value until the change is confirmed:
+
+```java
+public class ScopeFormRow extends EditViewRow
+{
+    public ScopeFormRow(View view) { super(view); }
+
+    @Override
+    public void setValue(String name, Object value)
+    {
+        super.setValue("scope".equals(name) ? "pendingScope" : name, value);
+    }
+}
+```
+
+* `setValueFromFrontEnd` ends in `setValue`, so the user's choice lands in `pendingScope`. Java code that sets the real
+  column calls `setValueInternal("scope", ...)`.
+* The field's `afterValueChangeE` reads and clears the pending column, then refreshes the field or its container. The
+  browser keeps showing the option the user picked until that refresh draws the stored value. A page reload draws the
+  stored value too, so a confirmation that was never finished leaves nothing changed.
+* For one field only, `TextField::setValueUpdateE(code)` replaces the update step. The default is
+  `return $this->r()->setValueFromFrontEnd($this->c("col"),$this->getCurrentValue());`. The code returns an array:
+  the value was accepted, and an error text (null when there is none).
 
 ### Rules in the row
 
@@ -604,8 +636,32 @@ $close->setActionE(function () { $this->com('editDialog')->close(); });
 
 * `open()`, `close()`, `refreshAndOpen()`. A refresh of the page (or of the panel itself) renders it closed; call
   `open()` after the refresh to keep it open. `startOpen()` renders it open the first time.
+* `setStyle` on the panel styles the dialog box (the inner div). `skylin.css` gives `.modalDialog > div` a width of
+  400px, `margin: 10% auto`, padding, rounded corners and a grey gradient. An inline style wins over all of these, so a
+  dialog with its own size and look needs no stylesheet rule.
 * Save follows the `validate()` idiom: on failure `validate()` and `refreshAndOpen()`; on success `close()` and refresh
   the page.
+
+#### A dialog whose row is made when it opens
+
+```php
+$content = $dialog->add(new Group());       // or a Template
+$content->setPropE('row', function () { return $this->a()->getAM('am')->getView('EditForm')->getFirst(); });
+$content->setRenderedE(function () { return $this->a()->getAM('am')->isEditing(); });
+
+$open->setActionE(function () { $this->a()->getAM('am')->prepareEdit(); $this->com('editDialog')->refreshAndOpen(); });
+```
+
+* `prepareEdit()` may `clear()` the view and create a new row with `newRow()`. The view does not have to keep the row
+  object. `refreshAndOpen()` draws the dialog again, so `setPropE` returns the new row, the fields carry its link id,
+  and every click after that finds it (see [architecture.md](architecture.md#how-a-component-finds-its-row)).
+* Inside the open dialog, refresh the component that has the `setPropE` (or one above it). A field refreshed on its own
+  draws the row of its last render.
+* Keep the same row only when you call `refreshInRow($row)` on an element drawn earlier. The id is built from the row
+  you pass, so it must be the row that element was drawn for. Keep the row and set its values again instead of
+  `clear()` and `newRow()`.
+* Before the first open the view has no row, and the content would render against the `DefaultRow`. `setRenderedE` on
+  the content leaves only a hidden `div` until the open handler's refresh draws it.
 
 ## 7. Rows in tables and lists
 
@@ -717,7 +773,13 @@ $lines->add(new TextField('productName'));
   adds no id of its own: put `id="<skylin_comId>"` on the root element.
 * Binding points are replaced with `str_replace` and nothing is escaped. Show data through components (a `TextField`
   escapes it); keep the string bindings for state the browser needs before any click, such as an initial class.
-* Inline `<script>` and `<style>` run and apply when the HTML is inserted.
+* Inline `<script>` and `<style>` run and apply when the HTML is inserted. A look that belongs to one template (a
+  dialog, a panel) can live in its own `<style>`, with every rule under the root element's class, so it comes and goes
+  with the component and the shared stylesheet does not grow.
+* Every `setCom` component renders each time the template renders, even when the HTML around its binding point hides
+  it. Show and hide parts with a `setStringE` that writes `display:none` into a `style` attribute. Give a component
+  that reads data its own `setRenderedE` (a `ChoiceLov` runs its list query when it renders), and give the template a
+  `setRenderedE` while its row does not exist yet.
 * `setEventE('name', code)` plus the JavaScript call `templateEvent('name', '<skylin_comId>', data)` sends an event to
   the server. In the handler, `$this->c('eventData')` is the data.
 * Keep state in CSS classes, render the initial state on the server, and use one delegated listener on the root
@@ -750,7 +812,7 @@ $lines->add(new TextField('productName'));
   `InitRequest.php`'s error level hides. `Grid::add` takes it by value.
 * **`Grid(x, y)`** renders `x * y` cells and fills them in the order children are added. Missing children leave empty
   cells; children beyond `x * y` are not rendered.
-* **An `Iter` with `noTag()`** has no element of its own, so refresh its parent, not the iterator.
+* **An `Iter` or a `Group` with `noTag()`** has no element of its own, so refresh its parent, not the component.
 * **Unicode.** Write text as it is, in UTF-8 files without a BOM. No `htmlentities`, no `utf8_encode`. Java
   `String.length()` counts UTF-16 code units (an emoji counts 2); PHP `strlen()` counts bytes.
 * **Cost.** Every component asks the JVM for values when it renders, and each call is a round trip. A table with
