@@ -79,6 +79,8 @@ checked against the code in this repository.
 * **Bind handling is textual.** `setQuery` finds `:name` outside single quotes, ends the name at a space, `)`, `,`, `|`,
   a tab or a line break, and replaces it with `?` using `String.replaceFirst`. A colon outside single quotes always
   starts a bind, including PostgreSQL's `::` cast; use `cast(x as type)`. Bind names become camelCase.
+* **Write binds in `snake_case`.** The name is lowercased before `_x` becomes `X`, so `:client_id` is the bind
+  `clientId`, but `:clientId` is the bind `clientid`, and `setBindVar("clientId", ...)` then throws.
 * **`setBindVar` throws** when the view has no bind of that name.
 * **`setBindVarArray(name, oracleType, value, connection)`** binds an Oracle collection. It unwraps the pool connection
   with `getInnermostDelegate`, then builds `oracle.sql.ArrayDescriptor` and `oracle.sql.ARRAY` by reflection and binds
