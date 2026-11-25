@@ -25,7 +25,8 @@ Browser --HTTP--> web server + PHP 8 --Unix socket--> Skylin JVM (Java 21) --JDB
    error reporting, the UTF-8 header and the session handler, which keeps the PHP session through the JVM.
 2. `index.php` gets or creates the root `Application` in `$_SESSION` and a child application for the path. The first time
    that application renders, it includes `applications/<app path>.php`. That file builds the component tree with `$this`
-   as the application.
+   as the application. `Application::applicationFile()` accepts only letters, digits, `_` and `/` in the path and
+   checks that the resolved file is inside `applications/`; anything else shows "Cannot find application".
 3. Each component renders HTML. Values come from Java objects through the `java` proxy class
    (`skylin/bridge/java.php`): a call such as `$row->getValue('name')` is one round trip to the JVM.
 4. A click or a changed field is a POST to the component's own PHP file (`skylin/Button.php` with `click=<id>`,
@@ -266,6 +267,6 @@ function registered with `register()`, then forwards to the first AM.
 
 * `java/src/test` (run by `mvn test`): the bridge wire format with 1 to 4 byte characters, split writes, two frames in one
   write, frames over 1 MB, binary session data, over TCP and over a Unix socket.
-* `php/tests/expression.php` and `php/tests/response-framing.php` need only PHP (with `mbstring` and `tokenizer`):
-  `php php/tests/expression.php`.
+* `php/tests/expression.php`, `php/tests/response-framing.php` and `php/tests/application-name.php` need only PHP (with
+  `mbstring` and `tokenizer`): `php php/tests/expression.php`.
 * `php/tests/bridge-roundtrip.php` needs a running JVM and goes through the real PHP bridge code.

@@ -22,7 +22,10 @@ How the pieces fit together is in [architecture.md](architecture.md). Setup is i
   bin/com/example/app/web/customers/search/vo/CustomerList.class
 ```
 
-* The screen path is the file path under `applications/` without `.php`. `index.php?customers/search/search` opens it.
+* The screen path is the file path under `applications/` without `.php`. `index.php?customers/search/search` and
+  `index.php?application=customers/search/search` open it. A path may use only letters, digits, `_` and `/`, and the
+  file must resolve inside `applications/` (a symlink that points outside it is refused), so name screen files and
+  folders with those characters.
 * A convention that works well: one folder per section, one folder per screen, and a Java package
   `com.example.app.web.<section>.<screen>` split into `am` (application modules), `vo` (views and rows) and `lov`
   (list classes). Code shared by a section goes in `web.<section>.shared`, code shared by everything in `web.shared`.

@@ -19,7 +19,7 @@ a Unix socket at a fixed path (see [architecture.md](architecture.md#bridge-tran
 <dependency>
   <groupId>com.distantmelody</groupId>
   <artifactId>skylin</artifactId>
-  <version>1.0.5</version>
+  <version>1.0.6</version>
 </dependency>
 ```
 
@@ -159,7 +159,7 @@ ProxyPassReverse /SessionSocket ws://127.0.0.1:1001/SessionSocket
 | Symptom | Likely cause |
 |---|---|
 | "Application module ... did not load" | The class is not under `bin/` with its package path, its package is not in `APPLICATION_PACKAGES`, or its constructor threw (see `backend_errors`) |
-| "Cannot find application <path>" | No file `applications/<path>.php` under the document root plus `SKYLIN_ROOT` |
+| "Cannot find application <path>" | No file `applications/<path>.php` under the document root plus `SKYLIN_ROOT`, the path has a character other than a letter, digit, `_` or `/`, or the file resolves (through a symlink) outside `applications/` |
 | A blank area where a component should be | A PHP error during render; read the PHP error log |
 | Every click reloads the page | The application id of the request no longer exists, usually because the JVM restarted |
 | PHP cannot connect to the bridge | The JVM is not running, the socket directory or file is not accessible to the web server user, or the two sides disagree about AF_UNIX support |
@@ -170,5 +170,6 @@ ProxyPassReverse /SessionSocket ws://127.0.0.1:1001/SessionSocket
 ## Tests
 
 * `mvn test` in this repository runs the Java bridge tests.
-* `php php/tests/expression.php` and `php php/tests/response-framing.php` need only PHP with `mbstring`.
+* `php php/tests/expression.php`, `php php/tests/response-framing.php` and `php php/tests/application-name.php` need
+  only PHP with `mbstring`.
 * `php php/tests/bridge-roundtrip.php [session-directory]` needs a running JVM.

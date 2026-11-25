@@ -262,7 +262,8 @@
 				$this->dropAllProperties();
 			}
 			$root = realpath($_SERVER["DOCUMENT_ROOT"]).$_SESSION["UTIL"]->getFrameworkParam('SKYLIN_ROOT');
-			if (file_exists("$root/applications/".$this->name.".php"))
+			$file = self::applicationFile($root,$this->name);
+			if ($file !== null)
 			{
 				$t = 'applications/'.$this->name;
 				$lastIndex = strlen($t) - 1 - strpos(strrev($t),'/');
@@ -270,7 +271,7 @@
 				unset($t);
 				unset($lastIndex);
 				$this->created = true;
-				include "$root/applications/".$this->name.".php";
+				include $file;
 			}
 			else
 			{
@@ -282,6 +283,26 @@
 				$this->replace($t);
 				$this->created = true;
 			}		
+		}
+
+		/**
+		 * The screen file for an application name, or null when there is none. The name comes from the URL (?<name> and
+		 * ?application=<name>), so only letters, digits, '_' and '/' are accepted, and the resolved file must be inside
+		 * $root/applications. A symlink inside applications/ that points outside it is therefore refused.
+		 */
+		static function applicationFile($root,$name)
+		{
+			if (!is_string($name) || !preg_match('#^[A-Za-z0-9_/]+\z#',$name))
+			{
+				return null;
+			}
+			$base = realpath("$root/applications");
+			$file = realpath("$root/applications/$name.php");
+			if ($base === false || $file === false || !is_file($file) || strpos($file,$base.DIRECTORY_SEPARATOR) !== 0)
+			{
+				return null;
+			}
+			return $file;
 		}
 		
 		function getAM($name = null)
