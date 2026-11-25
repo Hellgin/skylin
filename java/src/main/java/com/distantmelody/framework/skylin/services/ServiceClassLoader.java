@@ -38,17 +38,15 @@ public class ServiceClassLoader extends ClassLoader{
         return c;
     }
     
-    public Class findClass(String name) {
+    public Class findClass(String name) throws ClassNotFoundException {
     	
     	File file = new File(getPath(name)); 
     	Path path = Paths.get(file.getAbsolutePath()); 
-    	byte[] data = null;
+    	byte[] data;
 		try {
 			data = Files.readAllBytes(path);
-			//data = readFile("test/"+name.replaceAll(".", "/"));
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			throw new ClassNotFoundException(name, e);
 		} 
 
     	return defineClass(name,data,0,data.length);

@@ -142,6 +142,12 @@ class Component
 		$this->renderedE = Expression::toExpression($r);
 		return $this;
 	}
+
+	function setRendered($r)
+	{
+		$this->renderedE = 'return '.$r.';';
+		return $this;
+	}
 	
 	function getRendered()
 	{
@@ -432,7 +438,7 @@ class Component
 	
 	function __get($name)
 	{
-	   return $this->a()->getAM()->__get($name);
+	   return $this->a()->__get($name);
 	}
 	
 	function refreshComs($coms)

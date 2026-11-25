@@ -5,6 +5,9 @@ import java.io.InputStream;
 import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.SecureRandom;
 import java.sql.Blob;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -14,8 +17,11 @@ import java.sql.Timestamp;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.HexFormat;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 import org.slf4j.Logger;
@@ -89,6 +95,9 @@ public class View implements SkylinBridgeVirtualMethods
 	private String sortDir;
 	
 	private String[] sortableCols;
+
+	private static final SecureRandom TOKENS = new SecureRandom();
+	private final Map<String, FileUploadGrant> fileUploadGrants = new HashMap<String, FileUploadGrant>();
 	
 	//private static ConcurrentHashMap<Class,ViewGenCache> genCache = new ConcurrentHashMap<Class,ViewGenCache>();
 	//private boolean noGenCache = false;
@@ -972,6 +981,63 @@ public class View implements SkylinBridgeVirtualMethods
 			}
 		}
 		return false;
+	}
+
+	/** Two columns that FileUpload may fill in new rows of this view, for a caller that sends the token. */
+	public record FileUploadGrant(String nameColumn, String blobColumn, String token)
+	{
+	}
+
+	/**
+	 * Lets FileUpload add rows to this view, with the file name in nameColumn and the file in blobColumn, and returns the
+	 * token a caller must send. FileArea calls it each time it renders, with its element id as the owner, and puts the
+	 * token in the page. The new token replaces the owner's previous one, so an upload sent with a token from an earlier
+	 * render is refused.
+	 */
+	public String allowFileUpload(String owner, String nameColumn, String blobColumn)
+	{
+		if (!hasColumn(nameColumn) || !hasColumn(blobColumn) || getColumnType(blobColumn) != SkylinBlob.class)
+		{
+			throw new IllegalArgumentException("View " + name + " needs a column " + nameColumn + " and a blob column " + blobColumn + " for a file upload");
+		}
+		byte[] random = new byte[32];
+		TOKENS.nextBytes(random);
+		FileUploadGrant grant = new FileUploadGrant(nameColumn, blobColumn, HexFormat.of().formatHex(random));
+		synchronized (fileUploadGrants)
+		{
+			fileUploadGrants.put(owner, grant);
+		}
+		return grant.token();
+	}
+
+	/** Withdraws the owner's grant of allowFileUpload: FileArea calls it when it draws another view. */
+	public void revokeFileUpload(String owner)
+	{
+		synchronized (fileUploadGrants)
+		{
+			fileUploadGrants.remove(owner);
+		}
+	}
+
+	/** The grant of allowFileUpload whose token this is, compared in constant time, or null. */
+	public FileUploadGrant getFileUploadGrant(String token)
+	{
+		if (token == null)
+		{
+			return null;
+		}
+		byte[] candidate = token.getBytes(StandardCharsets.UTF_8);
+		synchronized (fileUploadGrants)
+		{
+			for (FileUploadGrant grant:fileUploadGrants.values())
+			{
+				if (MessageDigest.isEqual(grant.token().getBytes(StandardCharsets.UTF_8), candidate))
+				{
+					return grant;
+				}
+			}
+		}
+		return null;
 	}
 
 

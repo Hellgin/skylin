@@ -24,7 +24,8 @@ DOM updates.
   string or a closure; a closure is converted to the text of its body and may use only `$this`, superglobals and
   variables it assigns itself (no parameters, no `use`, no `fn`, one closure per line). Never build a handler string
   from request input or database values. Read data when the handler runs: `$this->r()` (row), `$this->c('name')`
-  (context), `$this->a()` (application), `$this->s()` (security), `$this->com('id')` (component).
+  (context), `$this->a()` (application), `$this->s()` (security), `$this->com('id')` or `$this->id` (component; a
+  component id hides a view of the same name, which stays reachable as `$this->getAM()->ViewName`).
 * **Text setters wrap their argument in code.** `Button::setText`, `setTitle`, `TextField::setEditable` and similar
   build `return "...";` or `return ...;`. Pass constants only, or use the `E` variant.
 * **Bind fields to columns.** `new TextField('col')` reads and writes `col` of the context row, takes its editability
@@ -71,6 +72,7 @@ DOM updates.
 | Fields, links, text areas, escaping | `php/skylin/TextField.php` |
 | Containers and lists | `php/skylin/Group.php`, `Iter.php`, `Grid.php`, `ModalPanel.php`, `TabStrip.php`, `Splitter.php` |
 | Tables | `php/skylin/Table.php` |
+| Files: upload, download, drop area | `php/skylin/File.php`, `FileArea.php`, `file-upload-worker.js`, `java/.../skylin/services/builtin/FileUpload.java` |
 | Lists of values | `php/skylin/Lov.php`, `ChoiceLov.php`, `SearchLov.php`, `java/.../lov/Lov.java` |
 | Templates | `php/skylin/Template.php` |
 | Response messages | `php/skylin/Response.php`, `php/skylin/skylin-precontent.js` |
@@ -89,6 +91,8 @@ DOM updates.
 
 * `mvn test` runs the Java bridge tests.
 * `php php/tests/expression.php` and `php php/tests/response-framing.php` need only PHP with `mbstring`.
+* `php php/tests/application-name.php`, `php php/tests/loopback-address.php`, `php php/tests/components.php` and
+  `php php/tests/session-id.php` need only PHP.
 * `php php/tests/bridge-roundtrip.php` needs a running JVM.
 
 ## Working on this repository

@@ -24,7 +24,7 @@
 	
 
 	require_once 'bridge/BridgeConnection.php';
-	require_once 'bridge/BridgeSessionHandler.php';session_set_save_handler(new BridgeSessionHandler(jvmGetBridgeConnection()), true);
+	require_once 'bridge/BridgeSessionHandler.php';BridgeSessionHandler::install(jvmGetBridgeConnection());
 	ClassLoader::load('java');
 
 	

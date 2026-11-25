@@ -870,6 +870,7 @@ class Table extends Component
     function setHeight($h)
     {
         $this->height = $h;
+        return $this;
     }	
     
     function enableHeaderCheckBoxInDynamicCheckBoxCols()

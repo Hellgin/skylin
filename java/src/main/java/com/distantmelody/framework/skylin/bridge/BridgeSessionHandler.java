@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
+import java.nio.file.Path;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,6 +17,9 @@ import org.slf4j.LoggerFactory;
  * Session data is the string PHP's {@code serialize()} made, which contains byte lengths ({@code s:5:"abcde";}) and
  * can contain any byte. It is therefore never converted to a String here: the bytes that PHP wrote are the bytes
  * that are stored and the bytes that PHP reads back.
+ * <p>
+ * The session id comes from the browser's cookie and becomes part of a file name, so every command refuses an id that
+ * {@link BridgeSession#isValidId} does not accept, and a file that would not be directly inside the save path.
  */
 public class BridgeSessionHandler 
 {
@@ -28,14 +32,41 @@ public class BridgeSessionHandler
 		return text.getBytes(StandardCharsets.UTF_8);
 	}
 
+	/** The session file of the id, or null (logged) when the id is not valid or the file would be outside the save path. */
+	private Path sessionFile(String id)
+	{
+		if (!BridgeSession.isValidId(id) || savepath == null)
+		{
+			LOG.warn("Session handler: refused a session id that is not 22 to 128 letters, digits and '-'");
+			return null;
+		}
+		Path dir = Path.of(savepath).toAbsolutePath().normalize();
+		Path file = dir.resolve("sess1_" + id).normalize();
+		if (!dir.equals(file.getParent()))
+		{
+			LOG.warn("Session handler: refused a session file outside the save path");
+			return null;
+		}
+		return file;
+	}
+	
 	private byte[] open(String sp, String sessionName,String id) {
-		BridgeSession session = BridgeSession.sessions.get(id);
-		
 		if (savepath == null)
 		{
 			savepath = sp;
 		}
-		
+		if (id.isEmpty())
+		{
+			//no cookie, or one PHP does not send: PHP makes a new id next
+			return makeSavePath();
+		}
+		Path file = sessionFile(id);
+		if (file == null)
+		{
+			return reply("false");
+		}
+
+		BridgeSession session = BridgeSession.sessions.get(id);
 		if (session != null)
 		{
 			session.getLock();
@@ -44,16 +75,18 @@ public class BridgeSessionHandler
 		{
 			try 
 			{
-				Files.deleteIfExists(new File(savepath+"/sess1_"+id).toPath());
+				Files.deleteIfExists(file);
 			} 
 			catch (IOException e) 
 			{
 				e.printStackTrace();
 			}
 		}
+		return makeSavePath();
+	}
 
-		
-
+	private byte[] makeSavePath()
+	{
 		try
 		{
 			new File(savepath).mkdirs();
@@ -66,10 +99,14 @@ public class BridgeSessionHandler
 	}
 	
 	private byte[] read(String id) {
-		
+		Path file = sessionFile(id);
+		if (file == null)
+		{
+			return reply("");
+		}
 		try 
 		{
-			return Files.readAllBytes(new File(savepath+"/sess1_"+id).toPath());
+			return Files.readAllBytes(file);
 		} 
 		catch (NoSuchFileException e)
 		{
@@ -83,9 +120,14 @@ public class BridgeSessionHandler
 	}
 	
 	private byte[] write(String id, byte[] data) {
+		Path file = sessionFile(id);
+		if (file == null)
+		{
+			return reply("false");
+		}
 		try
 		{
-			Files.write(new File(savepath+"/sess1_"+id).toPath(), data);
+			Files.write(file, data);
 			return reply("true");
 		}
 		catch(Exception e)
@@ -105,6 +147,11 @@ public class BridgeSessionHandler
 	}
 
 	private byte[] destroy(String id) {
+		Path file = sessionFile(id);
+		if (file == null)
+		{
+			return reply("false");
+		}
 
 		BridgeSession session = BridgeSession.sessions.get(id);
 		if (session != null)
@@ -115,7 +162,7 @@ public class BridgeSessionHandler
 		}
 		try
 		{
-			Files.deleteIfExists(new File(savepath+"/sess1_"+id).toPath());
+			Files.deleteIfExists(file);
 			return reply("true");
 		}
 		catch (Exception e)
@@ -132,6 +179,16 @@ public class BridgeSessionHandler
 		return reply("false");
 
 		//return "".getBytes();
+	}
+
+	/** PHP's validateId (session.use_strict_mode): only a session the JVM holds or has a file of is taken from a cookie. */
+	private byte[] exists(String id) {
+		Path file = sessionFile(id);
+		if (file == null)
+		{
+			return reply("false");
+		}
+		return reply(BridgeSession.sessions.containsKey(id) || Files.exists(file) ? "true" : "false");
 	}
 
 	private byte[] gc(long max) {
@@ -180,9 +237,9 @@ public class BridgeSessionHandler
 	
 	/**
 	 * Runs one session command. {@code d} is the data of the bridge command {@code b}: {@code <command>[,<data>]}.
-	 * Commands: 1 open ({@code <save path>,<session id>,<session name>}), 2 read ({@code <id>}), 3 write
+	 * Commands: 1 open ({@code <save path>,<session id>,<session name>}; an empty id when PHP makes a new one), 2 read ({@code <id>}), 3 write
 	 * ({@code <id>,<session data>}: everything after the comma is the data, byte-exact, commas and all), 4 close,
-	 * 5 destroy, 6 gc.
+	 * 5 destroy, 6 gc, 7 exists ({@code <id>}: {@code true} when the JVM holds the session or has its file).
 	 */
 	public byte[] process(ByteReader d)
 	{
@@ -215,6 +272,10 @@ public class BridgeSessionHandler
 		else if ("6".equals(command))
 		{
 			return gc(Long.parseLong(d.string()));
+		}
+		else if ("7".equals(command))
+		{
+			return exists(d.string());
 		}
 		return reply("");
 	}

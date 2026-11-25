@@ -2,6 +2,8 @@ package com.distantmelody.framework.skylin.bridge;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
@@ -9,6 +11,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.lang.reflect.Proxy;
 import java.net.Socket;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -22,7 +25,12 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import com.distantmelody.framework.skylin.AM;
+import com.distantmelody.framework.skylin.SkylinBlob;
+import com.distantmelody.framework.skylin.SkylinClassLoader;
+import com.distantmelody.framework.skylin.View;
 import com.distantmelody.framework.skylin.server.Server;
+import com.distantmelody.library.json.J;
 import com.distantmelody.framework.skylin.websocket.SessionSocket;
 
 /**
@@ -31,7 +39,7 @@ import com.distantmelody.framework.skylin.websocket.SessionSocket;
  */
 abstract class BridgeProtocolTestBase
 {
-	static final String SESSION = "unit-test-session";
+	static final String SESSION = "unit-test-session-0123456789abcdef";
 	static final String E_ACUTE = "\u00e9";
 	static final String EURO = "\u20ac";
 	static final String JAPANESE = "\u65e5\u672c\u8a9e";
@@ -326,17 +334,63 @@ abstract class BridgeProtocolTestBase
 			all[i] = (byte) i;//every byte value twice, including 0, ',' and all invalid UTF-8 sequences
 		}
 		byte[] php = PhpWire.concat(PhpWire.utf8("a:2:{s:1:\"x\";s:" + (all.length + 5) + ":\""), all, PhpWire.utf8(",\u00e9\u20ac\";s:1:\"y\";i:1;}"));
+		String id = "binsess-0123456789abcdef";
 		for (byte[] data:List.of(all, php, new byte[0], PhpWire.utf8(MIXED), new byte[] {(byte) 0xC3}, new byte[] {(byte) 0xF0, (byte) 0x9F}))
 		{
-			byte[] open = call(PhpWire.concat(PhpWire.utf8("b,1," + tmp + ",binsess,PHPSESSID")));
+			byte[] open = call(PhpWire.concat(PhpWire.utf8("b,1," + tmp + "," + id + ",PHPSESSID")));
 			assertEquals("true", text(open));
-			assertEquals("true", text(call(PhpWire.concat(PhpWire.utf8("b,3,binsess,"), data))));
-			assertArrayEquals(data, Files.readAllBytes(tmp.resolve("sess1_binsess")), "file content");
-			assertArrayEquals(data, call(PhpWire.utf8("b,2,binsess")), "read back");
-			assertEquals("true", text(call(PhpWire.utf8("b,4,binsess"))));
+			assertEquals("true", text(call(PhpWire.concat(PhpWire.utf8("b,3," + id + ","), data))));
+			assertArrayEquals(data, Files.readAllBytes(tmp.resolve("sess1_" + id)), "file content");
+			assertArrayEquals(data, call(PhpWire.utf8("b,2," + id)), "read back");
+			assertEquals("true", text(call(PhpWire.utf8("b,4," + id))));
 		}
-		assertEquals("true", text(call(PhpWire.utf8("b,5,binsess"))));
-		assertTrue(Files.notExists(tmp.resolve("sess1_binsess")));
+		assertEquals("true", text(call(PhpWire.utf8("b,5," + id))));
+		assertTrue(Files.notExists(tmp.resolve("sess1_" + id)));
+	}
+
+	@Test
+	void sessionIdsThatSkylinDoesNotMakeReachNoFile() throws Exception
+	{
+		Path sessions = Files.createDirectories(tmp.resolve("sessions"));
+		Path victim = tmp.resolve("victim.txt");
+		Files.writeString(victim, "keep me");
+		Files.writeString(sessions.resolve("sess1_"), "keep me");
+		assertEquals("true", text(call(PhpWire.utf8("b,1," + sessions + ",,PHPSESSID"))), "open without an id (PHP makes one next) sets the save path");
+		assertEquals("keep me", Files.readString(sessions.resolve("sess1_")), "and deletes nothing");
+		Files.delete(sessions.resolve("sess1_"));
+
+		List<String> bad = List.of("/../../victim.txt", "..\\..\\victim.txt", "/../victim-0123456789abcdef", "../../../../../../victim.txt",
+				"short", "a".repeat(21), "a".repeat(129), "", "with space-0123456789abcdef", "with.dot-0123456789abcdef",
+				"with_underscore-0123456789ab", "\u00e9".repeat(22), "nul\u0000-0123456789abcdefgh");
+		for (String id:bad)
+		{
+			assertEquals(id.isEmpty() ? "true" : "false", text(call(PhpWire.utf8("b,1," + sessions + "," + id + ",PHPSESSID"))), "open " + id);
+			assertEquals("false", text(call(PhpWire.utf8("b,3," + id + ",overwritten"))), "write " + id);
+			assertEquals("", text(call(PhpWire.utf8("b,2," + id))), "read " + id);
+			assertEquals("false", text(call(PhpWire.utf8("b,5," + id))), "destroy " + id);
+			assertEquals("false", text(call(PhpWire.utf8("b,7," + id))), "exists " + id);
+			assertEquals("e", text(call(PhpWire.utf8("8," + id))), "bind " + id);
+			assertEquals(null, BridgeSession.sessions.get(id), "no session made for " + id);
+		}
+		assertEquals("keep me", Files.readString(victim), "nothing outside the save path was written or deleted");
+		try (var files = Files.list(sessions))
+		{
+			assertEquals(List.of(), files.toList(), "and no file was made in it");
+		}
+
+		String unknown = "0123456789abcdef0123456789abcdef";
+		assertEquals("false", text(call(PhpWire.utf8("b,7," + unknown))), "a valid id the JVM does not know");
+		assertEquals("true", text(call(PhpWire.utf8("b,3," + unknown + ",x"))));
+		assertEquals("x", Files.readString(sessions.resolve("sess1_" + unknown)), "written to the save path of the first open");
+		assertEquals("true", text(call(PhpWire.utf8("b,7," + unknown))), "it has a session file");
+		assertEquals("true", text(call(PhpWire.utf8("b,7," + SESSION))), "the JVM holds the session");
+		for (String id:List.of("a".repeat(22), "Z".repeat(128), "-".repeat(22), "abcdefghijklmnopqrstuv0123456789"))
+		{
+			assertEquals("true", text(call(PhpWire.utf8("b,3," + id + ",x"))), "valid " + id);
+			assertEquals("true", text(call(PhpWire.utf8("b,5," + id))));
+		}
+		assertEquals("0", text(call(PhpWire.utf8("8," + SESSION))), "a refused bind leaves no session, binding again works");
+		assertEquals(MIXED, invoke("echo", MIXED));
 	}
 
 	@Test
@@ -363,6 +417,199 @@ abstract class BridgeProtocolTestBase
 		String message = "1,12-setattr,x," + MIXED + "," + JAPANESE;
 		call(PhpWire.utf8("7,7," + message));
 		assertEquals(List.of(message), sent);
+	}
+
+	@Test
+	void serviceThatCannotBeCreatedGetsAnEmptyReplyAndTheConnectionGoesOn() throws Exception
+	{
+		String[] packages = SkylinClassLoader.applicationPackages;
+		SkylinClassLoader.applicationPackages = new String[] {"no.application.package."};
+		try
+		{
+			assertEquals(0, call(PhpWire.utf8("9,GET,,no.such.Service")).length, "unknown class");
+			assertEquals(0, call(PhpWire.utf8("9,GET,,java.lang.Thread")).length, "not a servlet");
+		}
+		finally
+		{
+			SkylinClassLoader.applicationPackages = packages;
+		}
+		assertEquals(MIXED, invoke("echo", MIXED));
+	}
+
+	static class RecordingAM extends AM
+	{
+		@Override
+		public byte[] receiveMessage(J in, String channel)
+		{
+			return ("got " + channel).getBytes(StandardCharsets.UTF_8);
+		}
+	}
+
+	/** restless.php calling MessageAM: the session is the one bound to this connection (command 8). */
+	String messageAM(String body) throws IOException
+	{
+		return text(call(PhpWire.utf8("9,POST,,com.distantmelody.framework.skylin.services.builtin.MessageAM?" + body)));
+	}
+
+	@Test
+	void messageAmReachesOnlyAnAmOfTheCallersOwnSession() throws Exception
+	{
+		String[] packages = SkylinClassLoader.applicationPackages;
+		SkylinClassLoader.applicationPackages = new String[] {"no.application.package."};
+		BridgeSession other = new BridgeSession("other-session", null);
+		BridgeSession.sessions.put("other-session", other);
+		other.objects.put(5, new RecordingAM());
+		BridgeSession.sessions.get(SESSION).objects.put(2, new RecordingAM());
+		try
+		{
+			assertTrue(messageAM("{\"amId\":2,\"channel\":\"c\",\"message\":{\"a\":1}}").endsWith("got c"));
+			assertTrue(messageAM("{\"amId\":2,\"message\":{}}").endsWith("got DEFAULT"));
+			assertFalse(messageAM("{\"sessionId\":\"other-session\",\"amId\":5,\"message\":{}}").contains("got"), "sessionId in the body is ignored");
+			assertFalse(messageAM("{\"amId\":1,\"message\":{}}").contains("got"), "an object that is not an AM");
+			assertFalse(messageAM("{\"amId\":999,\"message\":{}}").contains("got"), "no such object");
+			assertFalse(messageAM("{\"amId\":\"x\",\"message\":{}}").contains("got"), "amId is not a number");
+			assertFalse(messageAM("{\"message\":{}}").contains("got"), "no amId");
+			assertFalse(messageAM("{").contains("got"), "not JSON");
+			messageAM("{\"amId\":2,\"message\":" + "[".repeat(100_000) + "]".repeat(100_000) + "}");
+			assertEquals(MIXED, invoke("echo", MIXED), "the connection still works");
+		}
+		finally
+		{
+			SkylinClassLoader.applicationPackages = packages;
+			BridgeSession.sessions.remove("other-session");
+			BridgeSession.sessions.get(SESSION).objects.remove(2);
+		}
+	}
+
+	static class UploadView extends View
+	{
+		UploadView(AM am)
+		{
+			super(am);
+			setColumnNames("fileName", "file", "note");
+			setColumnTypes(String.class, SkylinBlob.class, String.class);
+		}
+	}
+
+	static UploadView uploadView()
+	{
+		AM am = new RecordingAM();
+		UploadView view = new UploadView(am);
+		am.setDataSource("none");
+		return view;
+	}
+
+	static final String FILE_UPLOAD = "com.distantmelody.framework.skylin.services.builtin.FileUpload";
+
+	@Test
+	void fileUploadGrantIsReplacedOnEveryRenderAndNeedsABlobColumn()
+	{
+		UploadView view = uploadView();
+		String first = view.allowFileUpload("x1xareax0", "fileName", "file");
+		assertTrue(first.matches("[0-9a-f]{64}"), "256 random bits as hex");
+		String second = view.allowFileUpload("x1xareax0", "fileName", "file");
+		assertFalse(first.equals(second), "every render gets a new token");
+		assertEquals(null, view.getFileUploadGrant(first), "the new token replaces the previous one");
+		assertEquals("fileName", view.getFileUploadGrant(second).nameColumn());
+		assertEquals("file", view.getFileUploadGrant(second).blobColumn());
+
+		String otherArea = view.allowFileUpload("x1xotherx0", "note", "file");
+		assertEquals("note", view.getFileUploadGrant(otherArea).nameColumn(), "another area of the same view has its own grant");
+		assertEquals("fileName", view.getFileUploadGrant(second).nameColumn(), "and leaves this one alone");
+		view.revokeFileUpload("x1xareax0");
+		assertEquals(null, view.getFileUploadGrant(second), "revoked");
+		assertEquals("note", view.getFileUploadGrant(otherArea).nameColumn(), "only the owner's grant is revoked");
+		assertEquals(null, view.getFileUploadGrant(null));
+
+		assertThrows(IllegalArgumentException.class, () -> view.allowFileUpload("x1xareax0", "fileName", "note"), "not a blob column");
+		assertThrows(IllegalArgumentException.class, () -> view.allowFileUpload("x1xareax0", "missing", "file"), "no such column");
+		assertThrows(IllegalArgumentException.class, () -> view.allowFileUpload("x1xareax0", "fileName", "missing"), "no such blob column");
+	}
+
+	@Test
+	void fileUploadAddsARowWithTheDecodedFileName() throws Exception
+	{
+		String[] packages = SkylinClassLoader.applicationPackages;
+		SkylinClassLoader.applicationPackages = new String[] {"no.application.package."};
+		UploadView view = uploadView();
+		String token = view.allowFileUpload("x1xareax0", "fileName", "file");
+		BridgeSession.sessions.get(SESSION).objects.put(3, view);
+		String fileName = "a, b_" + MIXED + JAPANESE + ".txt";
+		String encoded = URLEncoder.encode(fileName, StandardCharsets.UTF_8).replace("+", "%20");
+		try
+		{
+			assertTrue(text(call(PhpWire.utf8("9,POST,3_" + token + "_" + encoded + "," + FILE_UPLOAD + "?file bytes"))).endsWith("stored"), "the answer says the file was stored");
+			assertEquals(1, view.getRows().size());
+			assertEquals(fileName, view.getFirst().getValue("fileName"));
+			assertArrayEquals("file bytes".getBytes(StandardCharsets.UTF_8), view.getFirst().getBlob("file").getData());
+
+			assertFalse(text(call(PhpWire.utf8("9,POST,3_" + token + "_%E0%A4%A," + FILE_UPLOAD + "?x"))).contains("stored"));
+			assertEquals(1, view.getRows().size(), "a file name that is not URL-encoded adds no row");
+
+			view.allowFileUpload("x1xareax0", "fileName", "file");
+			assertFalse(text(call(PhpWire.utf8("9,POST,3_" + token + "_b.txt," + FILE_UPLOAD + "?more"))).contains("stored"));
+			assertEquals(1, view.getRows().size(), "the area rendered again, so the upload that started before it is refused");
+		}
+		finally
+		{
+			SkylinClassLoader.applicationPackages = packages;
+			BridgeSession.sessions.get(SESSION).objects.remove(3);
+		}
+	}
+
+	@Test
+	void fileUploadRefusesAnythingButAGrantedViewOfTheCallersSession() throws Exception
+	{
+		String[] packages = SkylinClassLoader.applicationPackages;
+		SkylinClassLoader.applicationPackages = new String[] {"no.application.package."};
+		UploadView granted = uploadView();
+		String stale = granted.allowFileUpload("x1xareax0", "fileName", "file");
+		String token = granted.allowFileUpload("x1xareax0", "fileName", "file");
+		UploadView other = uploadView();
+		String otherToken = other.allowFileUpload("x1xareax0", "fileName", "file");
+		UploadView notGranted = uploadView();
+		BridgeSession.sessions.get(SESSION).objects.put(3, granted);
+		BridgeSession.sessions.get(SESSION).objects.put(4, other);
+		BridgeSession.sessions.get(SESSION).objects.put(5, notGranted);
+		try
+		{
+			//a servlet that throws gets a zero-byte reply from the bridge; one that returns sends its (empty) headers
+			byte[] refused = null;
+			for (String header:List.of("", "garbage", "3_" + token, "x_" + token + "_a.txt", "1_" + token + "_a.txt", "999_" + token + "_a.txt",
+					"3__a.txt", "3_wrong_a.txt", "3_" + token.toUpperCase() + "_a.txt", "3_" + token.substring(1) + "_a.txt",
+					"3_" + stale + "_a.txt", "3_" + otherToken + "_a.txt", "5_" + token + "_a.txt", "3_fileName_file_a.txt", "3_note_file_a.txt"))
+			{
+				byte[] reply = call(PhpWire.utf8("9,POST," + header + "," + FILE_UPLOAD + "?file bytes"));
+				assertTrue(reply.length > 0, "returned without an exception: " + header);
+				assertFalse(text(reply).contains("stored"), header);
+				if (refused == null)refused = reply;
+				assertArrayEquals(refused, reply, header);
+			}
+			assertEquals(0, granted.getRows().size(), "no row without the view's own token");
+			assertEquals(0, other.getRows().size());
+			assertEquals(0, notGranted.getRows().size(), "no row in a view no FileArea was drawn for");
+			assertEquals(MIXED, invoke("echo", MIXED), "the connection still works");
+		}
+		finally
+		{
+			SkylinClassLoader.applicationPackages = packages;
+			BridgeSession.sessions.get(SESSION).objects.remove(3);
+			BridgeSession.sessions.get(SESSION).objects.remove(4);
+			BridgeSession.sessions.get(SESSION).objects.remove(5);
+		}
+	}
+
+	@Test
+	void backendEvalTokenIsConfirmedOnlyWhenItMatchesExactly() throws Exception
+	{
+		String token = BackendEvalToken.get();
+		assertTrue(token.matches("[0-9a-f]{64}"), "256 random bits as hex");
+		assertEquals("true", text(call(PhpWire.utf8("g," + token))));
+		for (String wrong:List.of("", token.substring(1), token + "0", token.toUpperCase(), token.substring(0, 63) + (token.endsWith("0") ? "1" : "0"), " " + token, token + "," + token))
+		{
+			assertEquals("false", text(call(PhpWire.utf8("g," + wrong))), wrong);
+		}
+		assertEquals("false", text(call(PhpWire.utf8("g"))), "no token");
 	}
 
 	@Test

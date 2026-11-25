@@ -11,8 +11,8 @@ checked against the code in this repository.
   for what a closure may contain.
 * **Text setters build code.** `Button::setText`, `Component::setTitle`, `SearchLov::setTextStyle` and
   `Button::setImage` store `return "<text>";`. `TextField::setEditable`, `TextField::setMinDec`,
-  `File::setUploadRendered`, `File::setDownloadRendered` and `Splitter::setClosed` store `return <value>;`. Pass
-  developer constants only, or use the `E` variant.
+  `Component::setRendered`, `FileArea::setEditable`, `File::setUploadRendered`, `File::setDownloadRendered` and
+  `Splitter::setClosed` store `return <value>;`. Pass developer constants only, or use the `E` variant.
 * **`SearchLov::setInListValidation($v)` does not work.** It combines its strings with `||`, which yields `true`, and
   the next value change fails with a `ParseError`. Use `setInListValidationE('return false;')`.
 * **`TextField::setValue` and `setValueE` make the field read-only** (editable expression `return false;`).
@@ -22,7 +22,9 @@ checked against the code in this repository.
   through `TextField`, which escapes by default.
 * **Component ids** must not contain `x`, `X` or `$`; `setId` throws.
 * **`com('id')` finds a component once it has been rendered** (components register with their application when they
-  first render), and only within the same application.
+  first render), and only within the same application. `$this->id` is the same lookup.
+* **A component id hides a view of the same name.** `$this->name` returns the component with that id when there is one
+  and asks the first AM only otherwise. Reach the view through `$this->getAM()->name`.
 * **`Group::add(&$com)` takes its argument by reference.** `add(new X())` works and raises a notice that the framework's
   error level hides.
 * **`Grid(x, y)`** renders exactly `x * y` cells. Fewer children leave empty cells; extra children are not rendered.
@@ -35,7 +37,16 @@ checked against the code in this repository.
   margin, padding, rounded corners, gradient).
 * **`TabStrip` identifies tabs by heading.** Two screens opened with the same heading share one tab: the second replaces
   the first. `setCloseable($heading, $closeable)` looks the tab up by position as if it were the sequence number, so call
-  it right after `setTab`, before any tab has been closed.
+  it right after `setTab`, before any tab has been closed. `setTabRenderedE` and `setTabEditableE` find the tab by
+  heading.
+* **A render of a `FileArea` stops its uploads in progress.** Each render replaces the area's upload token, so files
+  still waiting to be sent from before the render are refused (F5, a refresh of the area or of anything around it).
+  Refresh the component that lists the files, not the area.
+* **A `FileArea` that is not editable or not rendered withdraws its token when it renders.** One inside a container
+  that is hidden is not rendered at all, so it keeps the token of its last render until it renders again.
+* **A tab hidden with `setTabRenderedE`** is left out when the whole strip renders, and `changeTab` ignores it. A tab
+  added with `setTab` is drawn at once without that check, and a hidden tab that is the current one leaves no tab
+  selected.
 * **`getTopApplication()` compares applications with `==`**, which compares the objects property by property through the
   whole tree. Pass the application you need in a context property instead.
 * **Page title, icon, stylesheet and head** (`setTitle`, `setIcon`, `setCss`, `setHead` on an application) are taken from
@@ -112,14 +123,18 @@ checked against the code in this repository.
 * **Requests of one session run one at a time, in no guaranteed order.** The browser sends a field's change (on blur)
   and a click on the button next to it as two requests. When both arrive together the click can run first and see the
   previous value. Scripted tests should wait for the change request to finish before they click.
-* **A JVM restart resets every session.** The next page load builds the screens again; a POST answers with a reload.
+* **A JVM restart resets every session.** The next page load builds the screens again under a new session id; a POST
+  answers with a reload.
+* **The session id from a cookie is used only when the JVM knows the session** (`session.use_strict_mode`). Any other
+  id, and any id that is not 22 to 128 letters, digits and `-`, is replaced with a new one.
 * **Sessions expire after 180 minutes without activity** when PHP's session gc runs, whatever
   `session.gc_maxlifetime` says.
 * **Download links** (`SkylinBlob.getUrl`) are single-use and expire after 10 seconds.
-* **`AM.eval(code)` needs `BACKEND_EVAL:true`.** While it is off, `eval` logs "Backend eval is disabled" and returns
-  null. Outside a bridge request it posts to `http://localhost/skylin/websocket/BackendEval.php`, which needs a web
-  server answering there with a free worker. A same-request eval sends the code on the bridge and does not wait for a
-  result, so a PHP exception inside it never comes back to Java.
+* **`AM.eval(code)` outside a bridge request posts to `http://localhost/skylin/websocket/BackendEval.php`**, which
+  needs a web server answering there with a free worker. The body starts with a random token the JVM makes at start.
+  `BackendEval.php` answers 403 unless the caller's address is loopback and the JVM confirms the token (bridge command
+  `g`), and checks both before it opens the session named in the body. A same-request eval sends the code on the
+  bridge and does not wait for a result, so a PHP exception inside it never comes back to Java.
 * **A failed `eval` is logged twice.** `InitRequest.php` catches an uncaught exception, including one from a handler
   `eval`, writes it to the PHP error log and to `com.distantmelody.framework.skylin.util.Log.error`, and answers HTTP
   500 when the headers are still open. `Application::backendEval` catches its own failure, logs it the same way, and
@@ -144,8 +159,8 @@ checked against the code in this repository.
 
 * macOS. junixsocket ships a macOS library and the socket path is `/tmp/sky/bridge.sock`, but it has not been run there.
 * The TCP fallback for Windows before 10 1803.
-* Parts of the PHP frontend have not been reviewed for PHP 8 changes: the session handler method signatures, old
-  `each()` / `create_function` style code, and string to number comparisons. The paths that screens use (rendering,
+* Parts of the PHP frontend have not been reviewed for PHP 8 changes: old `each()` / `create_function` style code, and
+  string to number comparisons. The paths that screens use (rendering,
   tables, lists, tabs, templates, login) work on PHP 8.3.
 * The two socket path functions (`BridgeListener.bridgeSocketPath` in Java and `skylinBridgeSocketPath` in PHP) are kept
   in sync by hand; no test compares them.
@@ -164,6 +179,16 @@ checked against the code in this repository.
 * `Application::render()` gives the wrapper div of an application that has another one pushed on top of it the
   application's own classes. `Grid` puts the classes added with `addClass` on its root div.
 * The browser response counts its lengths in UTF-16 code units, so text outside ASCII is cut in the right places.
+* Brought over from the pitsrc copy of Skylin: `FileArea` (drop files on an area; it posts to `restless.php`, where the
+  pitsrc version used `rest.php` with the session id in the header), `$this->id` finding a component, `finalInit()` for
+  every AM after the screen file, `Component::setRendered`, `TabStrip::setTabRenderedE`, and `Splitter::setClosed`,
+  `Splitter::setClosedE` and `Table::setHeight` returning the component for chaining. The `FileArea` port escapes the
+  file names it writes, accepts a closure in `setViewE` and `afterUploadE`, ignores an upload notification for a
+  component that is not a rendered `FileArea`, handles `dragover` so the browser fires `drop`, reads folders of any
+  size, and uploads one file at a time with the file name URL-encoded. It sends the view's upload token instead of the
+  column names (`View.allowFileUpload`), so `FileUpload` writes only to views and columns a `FileArea` opened. The
+  token is replaced on every render of the area and withdrawn when the area renders not editable (`setEditableE`, new)
+  or not rendered.
 
 ### Java backend
 
@@ -182,3 +207,23 @@ checked against the code in this repository.
 * `Server` starts Apache itself only when `APACHE_EXEC` is set (the original always did on Windows).
 * Datasources can be registered from code (`Server.addDataSource`, `CONFIG_CLASS`), and `DATASOURCE_FILE:disabled`
   skips the file.
+* `BackendEval.php` runs code only for a loopback caller with the JVM's token. `AM.websocketRefreshComponent` and
+  `skylin/websocket/RefreshComponent.php` are gone: refresh with `eval("$this->com('id')->refresh();")`.
+* `rest.php` and `restless.php` create only `HttpServlet` subclasses. The original created any class named in the URL
+  and cast it afterwards, so the constructor of a class that is not a service ran.
+* `MessageAM` ignores `sessionId` in the body and uses only the session of the request (the `PHPSESSID` cookie through
+  `restless.php`).
+* `FileUpload` takes the session from the request too, so it is called through `restless.php`, not `rest.php`. Its
+  `Authorization` header is `<view id>_<token>_<file name>` instead of
+  `<view id>_<name column>_<blob column>_<session id>_<file name>`: no session id, the columns come from the grant the
+  token names (`View.allowFileUpload`), and the file name is URL-encoded. A view takes uploads only after a `FileArea`
+  has rendered for it.
+* Session ids are checked. The original used the `PHPSESSID` cookie as it came, in the session file name
+  (`sess1_<id>`) and in bridge commands, so an id such as `../../file` reached files outside the save path, and an id
+  with a comma changed the command. PHP and the JVM now accept only 22 to 128 letters, digits and `-` (open sends an
+  empty id instead, and the other session commands and the session bind refuse it), and the JVM refuses a session file
+  outside the save path. `BridgeSessionHandler` turns on `session.use_strict_mode`, implements `validateId` (bridge
+  command `b,7`, new), `create_sid` (32 hex digits) and `updateTimestamp`, and uses the PHP 8 method signatures. An id
+  the JVM does not know is replaced, so a JVM restart gives every browser a new session id (the original kept the id
+  with an empty session). `restless.php` attaches no session for a cookie that is not a valid id, and `java.php` stops
+  the request with a 500 when the JVM refuses the session id.

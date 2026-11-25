@@ -116,8 +116,10 @@ ProxyPassReverse /SessionSocket ws://127.0.0.1:1001/SessionSocket
   the default port, link to the directory (`/?customers/search/search`, not `/index.php?...`), and proxy that path. With
   `SKYLIN_ROOT:/myapp` the path is `/myapp/SessionSocket`.
 * When the page runs on another port, set `WEB_SOCKET_ALT_PORT:true` and let the browser reach port 1001 directly.
-* With `BACKEND_EVAL:true`, the JVM calls `http://localhost/skylin/websocket/BackendEval.php`, so the web server must
-  answer on `localhost` port 80 with the Skylin files at its root.
+* `AM.eval` outside a request calls `http://localhost/skylin/websocket/BackendEval.php`, so the web server must answer
+  on `localhost` port 80 with the Skylin files at its root. `BackendEval.php` answers 403 unless the request comes from a
+  loopback address and starts with the JVM's token. Do not let anything in front of PHP (`mod_remoteip`, a proxy on the
+  same machine) set `REMOTE_ADDR` from a request header.
 * `session.save_path` in `php.ini` must be writable by the JVM, which writes the session files.
 
 ## Permissions of the socket

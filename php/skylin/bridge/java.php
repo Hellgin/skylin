@@ -84,6 +84,13 @@ class java
 
 session_start();
 $res = jvmCall('8,'.session_id());
+if ($res === 'e')
+{
+	//session_start keeps or makes only ids BridgeSessionHandler accepts, so session_start itself failed
+	error_log('Skylin: no valid session id after session_start');
+	http_response_code(500);
+	exit();
+}
 if ($res == '1')
 {
 	session_unset();

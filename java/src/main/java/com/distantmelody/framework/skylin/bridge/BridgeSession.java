@@ -11,6 +11,7 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Pattern;
 
 import javax.servlet.ServletContext;
 
@@ -29,6 +30,18 @@ public class BridgeSession
 	private static final Logger LOG = LoggerFactory.getLogger(BridgeSession.class);
 
 	public static ConcurrentHashMap<String,BridgeSession> sessions = new ConcurrentHashMap<String,BridgeSession>();
+	private static final Pattern VALID_ID = Pattern.compile("[A-Za-z0-9-]{22,128}");
+
+	/**
+	 * Whether a session id is one Skylin accepts: 22 to 128 letters, digits and '-', which covers what PHP makes with
+	 * session.sid_bits_per_character 4 or 5 (up to sid_length 128) and what the PHP BridgeSessionHandler makes. The id
+	 * becomes part of a file name (BridgeSessionHandler; file names end at 255 characters) and of comma-separated bridge
+	 * commands, so nothing else is let through.
+	 */
+	public static boolean isValidId(String id)
+	{
+		return id != null && VALID_ID.matcher(id).matches();
+	}
 	ConcurrentHashMap<Integer,Object> objects = new ConcurrentHashMap<Integer,Object>();
 	int previousObjectId;
 	public ArrayList<AM> activeAMs = new ArrayList<AM>();

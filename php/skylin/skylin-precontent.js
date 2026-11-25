@@ -1556,6 +1556,104 @@ eventHandlers['.file_download']['click'] = function(event)
 
 }
 
+eventHandlers['.file_area'] = {};
+eventHandlers['.file_area']['dragover'] = function(event)
+{
+	event.preventDefault();//without this the browser opens the dropped file instead of firing drop
+	event.originalEvent.dataTransfer.dropEffect = this.getAttribute('uploadtoken') ? 'copy' : 'none';
+}
+eventHandlers['.file_area']['drop'] = function(event)
+{
+	event.preventDefault();
+	var area = this;
+	if (!area.getAttribute('uploadtoken'))
+	{
+		return;//not editable: the server gave this area no token
+	}
+	var entries = [];
+	var items = event.originalEvent.dataTransfer.items;
+	for (var i = 0; i < items.length; i++)
+	{
+		var entry = items[i].kind == 'file' ? items[i].webkitGetAsEntry() : null;
+		if (entry)
+		{
+			entries.push(entry);
+		}
+	}
+	Promise.all(entries.map(fileAreaFiles)).then(function(lists)
+	{
+		var files = lists.flat();
+		if (files.length == 0)
+		{
+			return;
+		}
+		var labels = files.map(function(file)
+		{
+			if (!area.classList.contains('file_area_standalone'))
+			{
+				return null;
+			}
+			var label = document.createElement('div');
+			label.textContent = file.name;
+			area.appendChild(label);
+			return label;
+		});
+		var worker = new Worker('skylin/file-upload-worker.js');
+		worker.onmessage = function(msg)
+		{
+			if (msg.data.type == 'uploaded')
+			{
+				if (msg.data.ok && labels[msg.data.index] != null)
+				{
+					labels[msg.data.index].classList.add('file_area_uploaded_text');
+				}
+			}
+			else if (msg.data.type == 'done')
+			{
+				worker.terminate();
+				$.post('skylin/FileArea.php', {'FILE_AREA_UPLOAD': area.id}, response);
+			}
+		};
+		worker.postMessage({url: new URL('restless.php?com.distantmelody.framework.skylin.services.builtin.FileUpload', document.baseURI).href,
+							header: area.getAttribute('viewid')+'_'+area.getAttribute('uploadtoken')+'_',
+							files: files});
+	});
+}
+
+//the files of a dropped entry: the file itself, or every file under a directory
+function fileAreaFiles(entry)
+{
+	return new Promise(function(resolve)
+	{
+		if (entry.isFile)
+		{
+			entry.file(function(file){resolve([file]);}, function(){resolve([]);});
+			return;
+		}
+		if (!entry.isDirectory)
+		{
+			resolve([]);
+			return;
+		}
+		var reader = entry.createReader();
+		var children = [];
+		function readMore()//readEntries answers in batches, and an empty batch at the end
+		{
+			reader.readEntries(function(batch)
+			{
+				if (batch.length == 0)
+				{
+					Promise.all(children.map(fileAreaFiles)).then(function(lists){resolve(lists.flat());});
+					return;
+				}
+				children.push.apply(children, batch);
+				readMore();
+			}, function(){resolve([]);});
+		}
+		readMore();
+	});
+}
+
 
 function templateEvent(name,id,data = null)
 {

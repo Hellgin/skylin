@@ -5,7 +5,7 @@
 		{
 			if (in_array($className,array(	'Application','Group','Button','Table','TextField','Response','TabStrip','Iter','Grid','Image',
 											'Splitter','SearchLov','ChoiceLov','Lov','ModalPanel','Checkbox','Label','AnchorPanel','Date','IFrame',
-											'File','Toolbar','Template','Progress','Expression')))
+											'File','FileArea','Toolbar','Template','Progress','Expression')))
 			{
 				require_once $className . ".php";
 			}

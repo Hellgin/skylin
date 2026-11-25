@@ -79,6 +79,7 @@ check('big array', $arrays->asList($bigList) === $bigList);
 // --- the session handler keeps session data byte for byte
 require_once __DIR__.'/../skylin/bridge/BridgeSessionHandler.php';
 session_write_close();
+ini_set('session.use_strict_mode', '1');   // as BridgeSessionHandler::install
 $handler = new BridgeSessionHandler(jvmGetBridgeConnection());
 session_set_save_handler($handler, true);
 mt_srand(7);
@@ -90,9 +91,11 @@ $sessionStrings = array(
 	'unicode'  => implode('', $samples),
 	'bigunicode' => $big,
 );
-$sid = 'unicodetest'.bin2hex(random_bytes(6));
-session_id($sid);
+$asked = 'unicodetest'.bin2hex(random_bytes(6));
+session_id($asked);
 check('session_start with the bridge handler', session_start());
+$sid = session_id();
+check('an id the JVM does not know is replaced by a new one (validateId, create_sid)', $sid !== $asked && preg_match('/^[0-9a-f]{32}$/D', $sid) === 1);
 foreach ($sessionStrings as $k => $v) $_SESSION[$k] = $v;
 $_SESSION['nested'] = array('k,1' => "\u{e9},\u{20ac}", 7 => "\xf0\x9f");
 $serialized = session_encode();   // what PHP writes, before the session is closed

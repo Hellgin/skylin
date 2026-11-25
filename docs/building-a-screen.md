@@ -153,6 +153,9 @@ public class SearchAM extends AM
 * When `setDataSource` runs (from `addAM` in PHP), every view generates its column metadata and its `init()` runs, then
   the AM's `init()`. A query does not run by itself: call `executeQuery()` where it makes sense (in `init()` for a list
   that shows at once, or from a search method).
+* After the screen file has run, every AM it added gets `finalInit()`, once. By then all AMs of the screen exist and
+  have their datasource, so work that needs another AM of the screen goes there instead of `init()`. An AM created
+  outside a screen (no `addAM`) gets `finalInit()` at the end of `setDataSource`.
 * The SQL dialect is the database's. Skylin passes the query to JDBC after replacing the binds with `?`.
 
 ### PHP: attach the AM and show the rows
@@ -212,22 +215,28 @@ The rules:
   naming the file, the line and the reason.
 * **Inside a handler:** `$this->a()` is the application, `$this->r()` the context row, `$this->c('name')` a context value
   (a property set with `setProp` on this component or an ancestor), `$this->s()` the security context,
-  `$this->com('id')` a component of the same application. `com()` finds a component once it has been rendered.
+  `$this->com('id')` a component of the same application, also written `$this->id`. `com()` finds a component once it
+  has been rendered.
 * **Text setters wrap their argument in a string.** `Button::setText`, `Component::setTitle` (tooltip),
   `SearchLov::setTextStyle` and `Button::setImage` build `return "<argument>";`, and `TextField::setEditable`,
-  `setMinDec`, `File::setUploadRendered` and `Splitter::setClosed` build `return <argument>;`. Pass developer constants
-  only (no `"` or `$`), or use the `E` variant.
+  `setMinDec`, `Component::setRendered`, `FileArea::setEditable`, `File::setUploadRendered` and `Splitter::setClosed`
+  build `return <argument>;`. Pass developer constants only (no `"` or `$`), or use the `E` variant.
 * `Application::register('name', 'code')` adds a function to an application, called as `$app->name(...)`. Its code is
   always a string, because it reads the call's arguments from `$arg`, which a closure cannot do.
 * Named functions do not belong in a screen file: the file runs once per screen instance, and a second instance would
   declare the function again. Put logic in Java or in a PHP class.
 
-### Reaching a view by name
+### Reaching a component or a view by name
 
-A view of the screen's first AM reads as a property: `$this->CustomerList` in a handler, or
+A component of the application reads as a property: `$this->results->refresh()` is
+`$this->com('results')->refresh()`. Like `com()`, it finds a component once the component has rendered, and only
+within the same application, so it is for handlers rather than for the screen file.
+
+A view of the screen's first AM reads as a property too: `$this->CustomerList` in a handler, or
 `$this->getAM()->CustomerList` in the screen file.
 
-1. `Component::__get($name)` and `Application::__get($name)` forward to the first AM.
+1. `Component::__get($name)` and `Application::__get($name)` return the component of the application with that id.
+   When there is none, they forward to the first AM.
 2. The AM is a `java` proxy. A property read sends a call to the method `name` with no arguments.
 3. `AM` has no method `CustomerList`, so the JVM asks `AM.handleVirtualMethodCall`, which returns the view with that name.
 
@@ -235,6 +244,9 @@ The same fallback works further down: `$view->name` is the column `name` of the 
 of the row, and `$am->role()->ADMIN` asks `userInRole("ADMIN")`. A public method with the same name wins, and a name that
 matches nothing logs `could not find method` and returns null. A second AM is reached by name:
 `$this->a()->getAM('other')->SomeView`.
+
+A component id hides a view with the same name: once a component `CustomerList` has rendered, `$this->CustomerList` is
+that component. Give components ids that are not view names, or reach the view through `$this->getAM()->CustomerList`.
 
 ### A view whose rows are built in code
 
@@ -597,6 +609,9 @@ if ($state !== 'OK') { $this->add(new Label('Customer not found')); return; }
 
 * `TabStrip` identifies tabs by heading. `setTab` with a heading that is already open replaces that tab's content and
   selects it. Put the record id in the heading to get one tab per record.
+* `setTabRenderedE($heading, code)` hides a tab while the code returns false (`$this` is the `TabStrip`). It is checked
+  each time the strip renders, so `refresh()` the strip after the answer changes. `changeTab` ignores a hidden tab.
+  `setTabEditableE($heading, code)` keeps the tab visible and disables it instead.
 * Properties arrive as strings. Validate them in Java and check the permission on the opened screen too.
 * The screen file runs once, when the instance is created, so what it reads is a snapshot of that moment.
 * `getTopApplication()` compares applications with `==`, which compares objects property by property. A context key such
@@ -725,6 +740,50 @@ $roots->add($node);
 * A linked view gives each row its own child list: `getLinkedView(ChildView.class, "folderId", "parentId")` in a row
   method passes this row's `folderId` to the child view's bind `parentId`. With an odd number of arguments the first one
   is an instance name.
+
+### Files dropped on an area (FileArea)
+
+`FileArea` takes files and folders dragged onto it. Each file becomes a new row of the view: its name in the name column
+and its content in the blob column (a `SkylinBlob`).
+
+```php
+$area = $this->add(new FileArea('file', 'fileName'))      // blob column, name column
+    ->setView($this->getAM()->Attachments)
+    ->setStyle('width:310px;height:260px')
+    ->afterUploadE(function () { $this->attachmentTable->refresh(); });
+
+$table = $area->setChild(new Table())                    // drawn inside the area; setChild returns the child
+    ->setId('attachmentTable')
+    ->setView($this->getAM()->Attachments);
+$table->setContent('File', new TextField('fileName'), 200);
+```
+
+* `setView($view)` or `setViewE(code)` gives the view. With `setChild`, the area draws that component (a `Table` of the
+  view); without one it lists the names of the view's rows itself (`file_area_standalone`, 100 by 100 pixels in
+  `skylin.css`), and a dropped file shows as a line that turns green once it is stored.
+* The browser sends the files one at a time from a web worker (`skylin/file-upload-worker.js`) to
+  `restless.php?com.distantmelody.framework.skylin.services.builtin.FileUpload`, in the user's own session. A dropped
+  folder sends every file under it. When all files are in, `afterUploadE` runs on the server; refresh what shows the
+  view there.
+* Rendering the area opens the view to uploads into those two columns (`View.allowFileUpload`) and puts a token for
+  that in the page. `FileUpload` takes only requests with the current token, so a view that no `FileArea` has drawn
+  takes no uploads, and a request cannot name other columns. The blob column must be a blob (`SkylinBlob`) column;
+  otherwise rendering fails.
+* **Every render of the area replaces its token.** An upload that is still going when the area renders again (F5, a
+  `refresh()` of the area, or a refresh of anything that contains it, such as the whole screen) cannot finish: the file
+  being stored completes, the next one is refused, and the area stops sending. The files stored so far stay, and
+  `afterUploadE` still runs. Build the screen so that nothing refreshes the area while files may be uploading:
+  refresh the list beside it, or the `setChild` component, rather than the area or a container around it. A
+  `FileArea` drawn for another view, or for none, withdraws its token from the view it drew before.
+* `setEditableE(code)` (or `setEditable('false')`) closes the area: it still draws its child or its list, with the class
+  `file_area_disabled` and no token, the browser refuses drops on it, and `afterUploadE` does not run. A render while
+  the area is not editable, and a render while its own `setRenderedE` is false, withdraws its token from the view, so
+  the server refuses uploads too. The expression is read when the area renders, so `refresh()` the area after the
+  answer changes (that also stops uploads in progress, as above). Hiding a container around the area does not reach
+  the area, which keeps its token until it renders again; close the area itself with `setEditableE` or `setRenderedE`.
+* The rows are new rows of the view in the JVM, nothing more: nothing is written to the database until the view is
+  saved. `FileUpload` fills them with `setValue`, which does not call `validate`, so check the name and size of each
+  file in the save. Each file passes through PHP and the JVM whole, in memory.
 
 ## 8. Templates: layout, look and client-side behaviour
 

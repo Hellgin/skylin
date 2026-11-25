@@ -64,7 +64,6 @@ classpath, not from `bin/`.
 |---|---|---|
 | `LOG_PATH` | a directory | Legacy. Standard output and standard error are still written to `backend_out <date time>.txt` and `backend_errors <date time>.txt` there, one pair per start. Each complete line is also passed to SLF4J (`skylin.stdout` at info, `skylin.stderr` at error). Framework messages themselves go through SLF4J |
 | `UPLOAD_TMP` | a directory | A bridge reply over 1 MB is written to a file there and PHP reads the file. Without it, large replies go inline |
-| `BACKEND_EVAL` | `true` | Enables `AM.eval(code)` (run PHP code for the AM's application from Java) and `skylin/websocket/BackendEval.php`. Off by default; `BackendEval.php` answers 403 while it is off |
 | `SHUTDOWN_DAILY` | any value | The JVM exits at the next midnight (local time), for a supervisor to restart it |
 | `APACHE_EXEC` | path to `httpd.exe` | Windows only. The JVM ends any running `httpd.exe`, starts this one, and stops it at shutdown |
 | `PHP_LOG_PATH` | path to the PHP error log | With `APACHE_EXEC`: the log the JVM follows and echoes |
@@ -176,6 +175,9 @@ The bridge socket path does not depend on the working directory; see
 * Extensions: `sockets` (the bridge), `mbstring` (response framing), and `tokenizer` (closures in `Expression`, usually
   built in).
 * `session.save_path` must be a directory the **JVM** can write: the JVM writes the session files there.
+* Skylin turns on `session.use_strict_mode` itself and makes its own 32-hex-digit session ids, so `session.sid_length`
+  and `session.sid_bits_per_character` do not apply. A session id from a cookie is used only when it is 22 to 128
+  letters, digits and `-` and the JVM knows the session.
 * `default_charset = "UTF-8"`.
 * Skylin sets `error_reporting(E_ERROR | E_PARSE)` and `display_errors=0` in `InitRequest.php` for its own requests,
   because the frontend relies on undefined keys and properties reading as null. Keep `log_errors` on with an

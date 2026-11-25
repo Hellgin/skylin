@@ -59,6 +59,8 @@ types include:
 * Inside a component, `$this->a()` is the application, `$this->r()` the context row (a `DefaultRow` that answers null
   when there is none), `$this->c('name')` a context value, `$this->s()` the `SecurityContext`, and
   `$this->com('id')` a component of the same application by id.
+* Any other property, `$this->name`, is the component of the application with that id, and otherwise a property of the
+  first AM (a view of that name). `Component::__get` and `Application::__get` do the lookup.
 * The DOM id of a component is `x<applicationId>x<componentId>x<rowLinkId>`. The row link id is a chain of link ids
   joined with `x` when rows are nested. Because `x` is the separator, `setId()` throws on an id that contains `x` or `X`
   (and on `$`).
@@ -119,7 +121,8 @@ with `$this` being the component.
 * **`AM` (application module).** One per screen (or per part of a screen). It owns views, created in its constructor
   with `new SomeView(this)`. PHP attaches it with `$this->addAM('am', 'com.example.app.web.customers.search.am.SearchAM', 'main')`.
   The third argument is a datasource name; `setDataSource` then generates the column metadata of every view
-  (`genColumns`) and calls each view's `init()`, then the AM's `init()`.
+  (`genColumns`) and calls each view's `init()`, then the AM's `init()`. `Application::create` calls `finalInit()` on
+  every AM of the screen once the screen file has run; an AM without a screen gets it at the end of `setDataSource`.
 * **`View`.** A list of rows. Either a SQL query with named binds (`setQuery`) or columns declared in code
   (`setColumnNames`, `setColumnTypes`). The name of a view is its class's simple name.
 * **`ViewRow`.** One row. `getValue(col)` and `setValue(col, value)`. Subclasses add behaviour and validation
@@ -211,9 +214,11 @@ function registered with `register()`, then forwards to the first AM.
 * **Reply (JVM to PHP):** 7 ASCII hex digits `M`, then `M` bytes: a type character and the reply. Type `3` is the reply
   itself. Type `4` is the path of a file that holds a reply over 1 MB (only when `UPLOAD_TMP` is set).
 * **Callbacks.** While a call runs, the JVM can ask PHP to run code for an application (`1<appId>,<code>`, used by
-  `AM.eval` when `BACKEND_EVAL` is on). PHP runs it on a new bridge connection and the call continues. The JVM does not
-  wait for the result of that eval. A failure in it is written to the PHP error log and to SLF4J, and the Java call
-  does not see the exception.
+  `AM.eval`). PHP runs it on a new bridge connection and the call continues. The JVM does not wait for the result of
+  that eval. A failure in it is written to the PHP error log and to SLF4J, and the Java call does not see the exception.
+  Outside a call, `AM.eval` posts to `skylin/websocket/BackendEval.php` instead. That file runs the code only for a
+  loopback caller whose body starts with the JVM's token, which it checks with command `g,<token>` (reply `true` or
+  `false`) before it opens a session.
 * **Bytes, not characters.** Java reads a frame as `byte[]` (`ByteReader`) and decodes UTF-8 once at each leaf value.
   Replies are encoded once (`ByteWriter`). Session data is kept as bytes.
 * An idle connection is closed after 10 seconds.
@@ -221,14 +226,23 @@ function registered with `register()`, then forwards to the first AM.
 ## Sessions
 
 * `BridgeSessionHandler` (PHP, `skylin/bridge/BridgeSessionHandler.php`) is PHP's session handler. It sends session
-  open, read, write, close, destroy and gc to the JVM (bridge command `b`).
+  open, read, write, close, destroy and gc to the JVM (bridge command `b`). `BridgeSessionHandler::install()` sets it and
+  turns on `session.use_strict_mode`.
 * The JVM writes the serialized session to `sess1_<session id>` in PHP's `session.save_path`. The JVM user therefore
   needs write access to that directory.
+* A session id is 22 to 128 letters, digits and `-`. The id comes from the browser's cookie and becomes part of that
+  file name, so PHP (`BridgeSessionHandler::isValidId`) and the JVM (`BridgeSession.isValidId`) both refuse anything
+  else: no session command and no session bind (command `8`, reply `e`) runs with it, and the JVM also refuses a file
+  that would not be directly inside the save path.
+* Strict mode: PHP asks `validateId` about the cookie's id, which is true only for a valid id whose session the JVM
+  holds or has a file of (command `b,7,<id>`). Any other id is replaced with a new one from `create_sid`: 32 hex digits
+  (128 random bits), whatever `session.sid_length` says. PHP opens the session before it checks the id, so open sends
+  an empty id when the cookie's id is not valid; the JVM still learns the save path from it.
 * One request per session runs at a time: open waits for a per-session lock that close releases. Two requests of the
   same session that arrive together run one after the other, in no guaranteed order.
 * Java objects (AMs, views, rows) live in JVM memory, in a `BridgeSession` per PHP session id. When the JVM restarts,
-  every browser session starts empty: the next page load builds the screens again, and a POST answers with a page
-  reload.
+  every browser session starts empty, under a new session id: the next page load builds the screens again, and a POST
+  answers with a page reload.
 * gc drops sessions that have been inactive for 180 minutes, whatever `session.gc_maxlifetime` says.
 
 ## WebSocket
@@ -249,10 +263,31 @@ function registered with `register()`, then forwards to the first AM.
   (bridge command `9`). The HTTP method, the `Authorization` header and the request body reach the servlet; the body is
   its input stream. Text after a second `?` in the URL is passed as the input when the request has no body (that is how
   `SessionBlob` receives its id). Response headers and body come back to the caller. There is no PHP session.
+* `ServiceContainer` creates only a subclass of `HttpServlet`. Any other class named in the URL is refused after it is
+  loaded and before its static initializer or constructor runs. The call fails, and the JVM logs one error line:
+  `Cannot find servlet <name>`, or `Cannot call <name>: it is not a servlet (does not extend HttpServlet)`.
 * `restless.php` does the same, and also attaches the caller's Skylin session (from the `PHPSESSID` cookie) as the
-  request attribute `BRIDGE_SESSION`.
+  request attribute `BRIDGE_SESSION`. A cookie that is not a valid session id attaches none (`BRIDGE_SESSION` is
+  null).
 * Built-in services (`com.distantmelody.framework.skylin.services.builtin`): `SessionBlob` (downloads, used by
   `SkylinBlob.getUrl()`; a link is single-use and expires after 10 seconds), `FileUpload` and `MessageAM`.
+* `MessageAM` (`messageAM(amId, message, channel)` in the page's JavaScript) passes the message to `receiveMessage` of
+  an AM in the caller's own session, through `restless.php`. A caller outside the browser sends the session as the
+  `PHPSESSID` cookie. A body that is not a message, or an id that is not an AM of that session, is logged and gets an
+  empty answer.
+* `FileUpload` (`restless.php`, the file as the body, the `Authorization` header
+  `<view id>_<token>_<file name>` with the file name URL-encoded) adds a row with the file name and the file to a view
+  of the caller's own session. The view only takes uploads that a `FileArea` opened: each time the area renders,
+  `View.allowFileUpload(owner, nameColumn, blobColumn)` records a grant of those two columns with a new random 256-bit
+  token, replacing the grant the same area (`owner`, its element id) had before, and the area writes the token into the
+  page. `revokeFileUpload(owner)` withdraws it when the area draws another view or no view, or renders while it is not
+  editable (`setEditableE`) or not rendered (`setRenderedE`). `FileUpload` compares the token in
+  constant time and fills the two columns of the matching grant, so the request cannot choose columns. A malformed
+  header, an id that is not a view of that session, or a token that is not a current grant of that view is logged and
+  ignored, before any row is made. A stored file is answered with the body `stored` and a refused one with an empty
+  body (a service cannot set the HTTP status through the bridge); the worker stops at the first file that is not
+  stored. `FileArea` calls it from `skylin/file-upload-worker.js`, one file at a time; the encoding keeps names
+  outside ISO-8859-1 valid in an HTTP header and keeps a `,` or `?` in a name from splitting the bridge command.
 
 ## Text encoding
 

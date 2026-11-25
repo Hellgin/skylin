@@ -46,6 +46,22 @@ body, html {
 	margin: 0;
 }
 
+.file_area_standalone {
+	width: 100px;
+	height: 100px;
+	overflow-y: auto;
+	overflow-x: hidden;
+}
+
+.file_area_uploaded_text {
+	color: green;
+	font-weight: bold;
+}
+
+.file_area_standalone.file_area_disabled {
+	opacity: 0.5;
+}
+
 .search_lov_close {
     background-color: Transparent;
 	text-indent: 16px;

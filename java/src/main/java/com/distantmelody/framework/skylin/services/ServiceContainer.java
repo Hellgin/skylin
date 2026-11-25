@@ -14,7 +14,11 @@ public class ServiceContainer
 	ServiceClassLoader classLoader;
 	ArrayList<ServiceClass> classes = new ArrayList<ServiceClass>();
 	
-	public HttpServlet load(String name) throws InstantiationException, IllegalAccessException, ClassNotFoundException
+	/**
+	 * The name comes from the request, so a class that is not an {@link HttpServlet} is refused (ClassCastException)
+	 * before anything creates it: its static initializer and constructor never run.
+	 */
+	public HttpServlet load(String name) throws ReflectiveOperationException
 	{
 		ServiceContainer current = currentContainer.get(name);
 		if (current != null && current.isClassesUpToDate())
@@ -23,14 +27,15 @@ public class ServiceContainer
 			{
 				if (current.classes.get(i).klas.getName().equals(name))
 				{
-					return (HttpServlet)current.classes.get(i).klas.newInstance();
+					return current.classes.get(i).klas.asSubclass(HttpServlet.class).getDeclaredConstructor().newInstance();
 				}
 			}
 		}
 		classLoader = new ServiceClassLoader(this);
-		HttpServlet am = (HttpServlet) classLoader.loadClass(name).newInstance();
+		Class<? extends HttpServlet> service = classLoader.loadClass(name).asSubclass(HttpServlet.class);
+		HttpServlet servlet = service.getDeclaredConstructor().newInstance();
 		currentContainer.put(name, this);
-		return am;
+		return servlet;
 	}
 
 	private boolean isClassesUpToDate() 

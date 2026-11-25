@@ -299,7 +299,21 @@ public class BridgeConnection implements Runnable{
 			//return body;
 			try
 			{
-				HttpServlet servlet = new ServiceContainer().load(service);
+				HttpServlet servlet;
+				try
+				{
+					servlet = new ServiceContainer().load(service);
+				}
+				catch (ClassNotFoundException e)
+				{
+					LOG.error("Cannot find servlet {}", service);
+					return EMPTY;
+				}
+				catch (ClassCastException e)
+				{
+					LOG.error("Cannot call {}: it is not a servlet (does not extend HttpServlet)", service);
+					return EMPTY;
+				}
 				SkylinServletConfig config = new SkylinServletConfig();
 				config.setServletContext(context);
 				config.setServletName(service);
@@ -366,6 +380,12 @@ public class BridgeConnection implements Runnable{
 		else if ("8".equals(command))
 		{
 			String id = in.string();
+			if (!BridgeSession.isValidId(id))
+			{
+				LOG.warn("Refused a session id that is not 22 to 128 letters, digits and '-'");
+				session = null;
+				return utf8("e");
+			}
 			session = BridgeSession.sessions.get(id);
 			if (session == null)
 			{
@@ -414,6 +434,11 @@ public class BridgeConnection implements Runnable{
 				return utf8("true");
 			}
 			return utf8("false");
+		}
+		else if ("g".equals(command))
+		{
+			//<token>: BackendEval.php asks whether its request came from AM.eval, before it opens the session it names
+			return utf8(BackendEvalToken.matches(in.bytes()) ? "true" : "false");
 		}
 		return EMPTY;
 	}

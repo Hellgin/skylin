@@ -3,19 +3,20 @@ require_once 'skylin/bridge/BridgeConnection.php';
 require_once 'skylin/bridge/BridgeSessionHandler.php';
 
 
-$sessid = $_COOKIE["PHPSESSID"];
-if ($sessid != null)
-{
-    jvmCall('8,'.$_COOKIE["PHPSESSID"]);
-}
-else
+//a cookie that is not an id Skylin makes binds no session: the service sees BRIDGE_SESSION as null
+$sessid = $_COOKIE["PHPSESSID"] ?? null;
+if ($sessid === null)
 {
     //This will likely never be used. restless services will normaly (always?) be used on existing sessions.
     
-    session_set_save_handler(new BridgeSessionHandler(jvmGetBridgeConnection()), true);
+    BridgeSessionHandler::install(jvmGetBridgeConnection());
     session_start();
     session_write_close();
     jvmCall('8,'.session_id());
+}
+else if (BridgeSessionHandler::isValidId($sessid))
+{
+    jvmCall('8,'.$sessid);
 }
 
 

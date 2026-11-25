@@ -19,11 +19,13 @@ class Splitter extends Component
 	function setClosedE($c)
 	{
 		$this->closedE  = Expression::toExpression($c);
+		return $this;
 	}
 	
 	function setClosed($c)
 	{
 		$this->closedE = 'return '.$c.';';
+		return $this;
 	}
 	
 	function refreshState()

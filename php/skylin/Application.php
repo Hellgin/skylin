@@ -272,6 +272,10 @@
 				unset($lastIndex);
 				$this->created = true;
 				include $file;
+				foreach ($this->applicationModules as $am)
+				{
+					$am->finalInit();
+				}
 			}
 			else
 			{
@@ -613,6 +617,11 @@
 		
 		function __get($name)
 		{
+		    $com = $this->components[$name] ?? null;
+		    if ($com !== null)
+		    {
+		        return $com;
+		    }
 		    return $this->getAM()->__get($name);
 		}
 	}

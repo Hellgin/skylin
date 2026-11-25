@@ -18,6 +18,7 @@ import org.java_websocket.exceptions.WebsocketNotConnectedException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.distantmelody.framework.skylin.bridge.BackendEvalToken;
 import com.distantmelody.framework.skylin.bridge.BridgeConnection;
 import com.distantmelody.framework.skylin.bridge.BridgeSession;
 import com.distantmelody.framework.skylin.bridge.ByteReader;
@@ -26,7 +27,6 @@ import com.distantmelody.framework.skylin.security.QuickRoleLookup;
 import com.distantmelody.framework.skylin.server.SkylinDataSource;
 import com.distantmelody.library.json.J;
 import com.distantmelody.framework.skylin.util.ConnectionLookup;
-import com.distantmelody.framework.skylin.util.Util;
 import com.distantmelody.library.service.ServiceUtil;
 import com.distantmelody.framework.skylin.websocket.SessionSocket;
 
@@ -454,12 +454,6 @@ public class AM implements SkylinBridgeVirtualMethods
 
 	}
 	
-	@Deprecated
-	public void websocketRefreshComponent(String id)
-	{
-		LOG.warn("websocketRefreshComponent has been removed from AM. Use eval instead to refresh components via websockets.");
-	}
-	
 	@Deprecated /*threadMode param not needed anymore.*/
 	public Object eval(String code,int threadMode)
 	{
@@ -473,11 +467,6 @@ public class AM implements SkylinBridgeVirtualMethods
 	
 	public Object eval(String code, boolean forceNewRequest)
 	{
-		if (!"true".equalsIgnoreCase(Util.getFrameworkParam("BACKEND_EVAL")))
-		{
-			LOG.warn("Backend eval is disabled");
-			return null;
-		}
 		try
 		{
 			if (forceNewRequest || !BridgeConnection.isSameRequestEvalSupported())
@@ -524,7 +513,7 @@ public class AM implements SkylinBridgeVirtualMethods
 	{
 		//String base = "http://localhost"+session.getContext().getContextPath()+"/skylin/websocket/BackendEval.php";
 		String base = "http://localhost/skylin/websocket/BackendEval.php";
-		String input = session.getId()+","+frontEndApplicationId+","+code;
+		String input = BackendEvalToken.get()+","+session.getId()+","+frontEndApplicationId+","+code;
 			
 		//The answer is <byte length of the result>,<the encoded result><the browser messages>. The length counts
 		//bytes (PHP's strlen), so the answer is cut as bytes and only the two parts are decoded.

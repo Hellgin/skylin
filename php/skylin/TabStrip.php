@@ -15,6 +15,10 @@
 			$childrenContext['parent'] = $this;
 			foreach($this->tabLookupBySeq as $tab)
 			{
+				if (!eval($tab->getRenderedE()))
+				{
+					continue;
+				}
 				if ($this->currentTab == $tab)
 				{
 					$extra = $extra.'checked="checked"';
@@ -254,7 +258,12 @@
 		
 		function changeTab($seq)
 		{
-			$this->currentTab = $this->tabLookupBySeq[$seq];
+			$tab = $this->tabLookupBySeq[$seq] ?? null;
+			if ($tab == null || !eval($tab->getRenderedE()))
+			{
+				return;
+			}
+			$this->currentTab = $tab;
 			if ($this->mode == 0 && !is_null($this->a()))
 			{
 				$this->refresh();
@@ -290,6 +299,12 @@
 		{
 			$this->getTabAtIndex($this->getTabIndex($heading))->setEditableE($e);
 		}
+		
+		function setTabRenderedE($heading,$e)
+		{
+			$this->getTabAtIndex($this->getTabIndex($heading))->setRenderedE($e);
+			return $this;
+		}
 	}
 	
 	class Tab
@@ -300,6 +315,7 @@
 		private $seqNo;
 		private $tabStrip;
 		private $editableE = 'return true;';
+		private $renderedE = 'return true;';
 		
 		function setHeading($h)
 		{
@@ -349,6 +365,16 @@
 		function getEditableE()
 		{
 			return $this->editableE;
+		}
+		
+		function setRenderedE($e)
+		{
+			$this->renderedE = Expression::toExpression($e);
+		}
+		
+		function getRenderedE()
+		{
+			return $this->renderedE;
 		}
 		
 		function rename($newName)
