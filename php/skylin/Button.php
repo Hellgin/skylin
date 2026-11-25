@@ -1,13 +1,9 @@
 <?php
 
-//use Opis\Closure\SerializableClosure;
-
 require_once "Component.php";
 class Button extends Component
 {
 	private $action;
-	//private $actionF;
-	//private $actionF_ser;
 	private $textE = 'return "";';
 	private $actionName;
 	private $editableE;
@@ -29,11 +25,6 @@ class Button extends Component
 		$this->action = Expression::toExpression($action);
 		return $this;
 	}
-	/*
-	function setActionF($action)
-	{
-		$this->actionF_ser = serialize(new SerializableClosure($action));
-	}*/
 
 	function setActionName($actionName)
 	{
@@ -128,26 +119,7 @@ class Button extends Component
 		{
 			eval($this->action);
 		}
-		/*
-		else 
-		{
-			if ($this->actionF == null)
-			{
-				$this->actionF = unserialize($this->actionF_ser)->getClosure()->bindTo($this,$this);
-			}
-			$c = $this->actionF;
-			$c();
-		}*/
 	}
-	
-	/*
-	function __sleep()
-	{
-		$vars = get_object_vars($this);
-		unset($vars['actionF']);
-		return array_keys($vars);
-	}
-	*/
 	
 	function setText($t)
 	{
