@@ -154,6 +154,11 @@ checked against the code in this repository.
 * **The WebSocket server sets reuse address**, and the startup probe binds port 1001 with `SO_REUSEADDR`, so a restart
   can listen while connections from the previous process are still closing. If the port still cannot be bound, startup
   waits and retries every 20 seconds.
+* **The WebSocket server accepts messages up to `WEB_SOCKET_MAX_MESSAGE_SIZE` bytes** (default 1 MB). A larger message
+  closes that browser's connection with code 1009; other connections and the server carry on. A screen that sends large
+  data through `wsAmMessage` or `wsAmBinaryMessage` raises the limit in `FrameworkParams.cnf`.
+* **A WebSocket connection without a known session is closed** after the server sends `FORCE_REFRESH`. The session comes
+  from the `PHPSESSID` cookie of the WebSocket request, so the cookie must reach port 1001 through the proxy.
 * **Classes under `APPLICATION_PACKAGES` must be in `bin/`.** A class that is missing there does not load, even when it
   is on the classpath. Entries of `APPLICATION_PACKAGES` are not trimmed.
 * **`SecurityContext.login(user, domain)` and `login(user, options)` without `LoginPassword` do not check a password.**

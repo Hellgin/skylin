@@ -256,6 +256,12 @@ function registered with `register()`, then forwards to the first AM.
   directly.
 * Uses: server push from an AM (`AM.eval` outside a request, `customMessage`), a ping that keeps the session active, and
   `FORCE_REFRESH`, which reloads the page. Screens that do not push work without it.
+* A connection whose `PHPSESSID` cookie names no session in this JVM is sent `FORCE_REFRESH` and closed. After a JVM
+  restart that reloads the page, which creates the session again and reconnects.
+* A message over `WEB_SOCKET_MAX_MESSAGE_SIZE` (default 1 MB) closes that connection with code 1009. The server checks
+  the length a frame declares before it allocates the buffer, so a frame header that claims gigabytes costs nothing.
+* The server does not limit connections per address. Behind the proxy every connection comes from `127.0.0.1`, so limit
+  them at the edge (for example nginx `limit_conn`, or a WAF).
 
 ## Services: `rest.php` and `restless.php`
 

@@ -18,10 +18,10 @@ class SocketServerCloseTest
 	@Test
 	void closedConnectionDropsTheSessionSocket() throws Exception
 	{
-		String id = "socket-close-test";
+		String id = "socketclosetest0123456789abcdef";
 		BridgeSession session = new BridgeSession(id, null);
 		BridgeSession.sessions.put(id, session);
-		SocketServer server = new SocketServer(0, 1);
+		SocketServer server = new SocketServer(0, 1, SocketServer.DEFAULT_MAX_MESSAGE_SIZE);
 		WebSocketClient client = null;
 		try
 		{
@@ -31,7 +31,7 @@ class SocketServerCloseTest
 			{
 				Thread.sleep(20);
 			}
-			client = new QuietClient(new URI("ws://127.0.0.1:" + server.getPort() + "/SessionSocket"));
+			client = new QuietClient(new URI("ws://127.0.0.1:" + server.getPort() + "/SessionSocket"), id);
 			assertTrue(client.connectBlocking(5, java.util.concurrent.TimeUnit.SECONDS));
 			client.send("CONNECTED,1," + id);
 			waitUntil(5000, () -> server.sockets.size() == 1);
@@ -70,9 +70,9 @@ class SocketServerCloseTest
 
 	private static class QuietClient extends WebSocketClient
 	{
-		QuietClient(URI serverUri)
+		QuietClient(URI serverUri, String sessionId)
 		{
-			super(serverUri);
+			super(serverUri, java.util.Map.of("Cookie", "PHPSESSID=" + sessionId));
 		}
 
 		public void onOpen(ServerHandshake handshake)

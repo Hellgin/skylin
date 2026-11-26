@@ -5,10 +5,14 @@ import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
 import java.nio.ByteBuffer;
+import java.util.Collections;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.java_websocket.WebSocket;
+import org.java_websocket.drafts.Draft;
+import org.java_websocket.drafts.Draft_6455;
 import org.java_websocket.exceptions.WebsocketNotConnectedException;
+import org.java_websocket.extensions.IExtension;
 import org.java_websocket.handshake.ClientHandshake;
 import org.java_websocket.server.WebSocketServer;
 
@@ -17,21 +21,68 @@ import org.slf4j.LoggerFactory;
 
 import com.distantmelody.framework.skylin.AM;
 import com.distantmelody.framework.skylin.bridge.BridgeSession;
+import com.distantmelody.framework.skylin.util.Util;
 import com.distantmelody.library.json.J;
 
 public class SocketServer extends WebSocketServer{
 
 	private static final Logger LOG = LoggerFactory.getLogger(SocketServer.class);
+
+	/** The largest message a browser may send, in bytes, unless FrameworkParams sets WEB_SOCKET_MAX_MESSAGE_SIZE. */
+	public static final int DEFAULT_MAX_MESSAGE_SIZE = 1024 * 1024;
 	
 	ConcurrentHashMap<WebSocket,SessionSocket> sockets = new ConcurrentHashMap<WebSocket,SessionSocket>();
 
 	public SocketServer( int port,int decoders ) throws UnknownHostException {
-		super( new InetSocketAddress( port ) ,decoders);
+		this(port, decoders, maxMessageSize(Util.getFrameworkParam("WEB_SOCKET_MAX_MESSAGE_SIZE")));
+	}
+
+	/**
+	 * A frame, or a message sent in several frames, over maxMessageSize bytes closes that connection (1009). Without a
+	 * limit the library reserves whatever size a frame header claims, so one header claiming 2 GB stopped the server.
+	 */
+	SocketServer(int port, int decoders, int maxMessageSize) {
+		super(new InetSocketAddress(port), decoders,
+			Collections.<Draft>singletonList(new Draft_6455(Collections.<IExtension>emptyList(), maxMessageSize)));
+	}
+
+	/** The WEB_SOCKET_MAX_MESSAGE_SIZE value in bytes; the default when it is not set or not a positive whole number. */
+	static int maxMessageSize(String param) {
+		if (param == null || param.isBlank()) return DEFAULT_MAX_MESSAGE_SIZE;
+		try {
+			int size = Integer.parseInt(param.trim());
+			if (size > 0) return size;
+		}
+		catch (NumberFormatException e) {
+		}
+		LOG.warn("WEB_SOCKET_MAX_MESSAGE_SIZE '{}' is not a positive number of bytes; using {}", param, Integer.valueOf(DEFAULT_MAX_MESSAGE_SIZE));
+		return DEFAULT_MAX_MESSAGE_SIZE;
 	}
 	
+	/**
+	 * Only a browser with a session this JVM holds may stay connected. Any other is told to reload, as before, and
+	 * closed before it can send anything; after a JVM restart that reload gives the page a new session.
+	 */
     public void onOpen(WebSocket session, ClientHandshake handshake) {
-		//System.out.println( session.getRemoteSocketAddress().getAddress().getHostAddress() + " entered the room!" );
+		String id = sessionCookie(handshake.getFieldValue("Cookie"));
+		if (id == null || !BridgeSession.sessions.containsKey(id))
+		{
+			forceRefresh(session);
+		}
     }
+
+	/** The PHPSESSID value of a Cookie header, or null. */
+	static String sessionCookie(String header) {
+		if (header == null) return null;
+		for (String cookie : header.split(";")) {
+			String c = cookie.trim();
+			if (c.startsWith("PHPSESSID=")) {
+				String id = c.substring("PHPSESSID=".length());
+				return BridgeSession.isValidId(id) ? id : null;
+			}
+		}
+		return null;
+	}
 
     public void onMessage(WebSocket websocketSession,ByteBuffer messageBuffer) {
     	//System.out.println("received bytes: " + new String(message.array()));

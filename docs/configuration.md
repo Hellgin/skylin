@@ -39,6 +39,7 @@ LOG_PATH:logs
 | `NON_DEFAULT_EXCEPTIONS` | comma list of screen paths | Screens any host may open by URL, despite `ALLOW_NON_DEFAULT_APPLICATION_HOST` |
 | `EXTRA_JS` | comma list of script URLs | Added as `<script>` tags in the page head, after `skylin/skylin-precontent.js` |
 | `WEB_SOCKET_ALT_PORT` | `true` | The browser connects to `ws://<host>:1001` instead of the page's own port and path |
+| `WEB_SOCKET_MAX_MESSAGE_SIZE` | a number of bytes | The largest message the WebSocket server accepts from a browser. A larger message closes that connection with code 1009. Default `1048576` (1 MB). A value that is not a positive number logs a warning and uses the default |
 
 ### Java classes
 
