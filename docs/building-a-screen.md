@@ -364,7 +364,7 @@ $table->setPageSize(25);
 * A click on a row makes it the view's current row. `afterRowSelectE` runs after that.
   `setEnableUserRowSelectionE('return false;')` turns selection off.
 * Report a problem from Java with `info(message)`, `warn`, `error` or `fatal` on the AM. The message box appears when
-  the request ends.
+  the request ends. The message is plain text, never HTML (`<br>` shows as written); `\n` starts a new line.
 
 ## 4. Lists: ChoiceLov and SearchLov
 
@@ -395,6 +395,7 @@ public class CityLov extends Lov
   for the list (`cityCountry`), not something generic like `description`, so two lists on one row do not write into
   the same column. Clearing the key clears the shared columns.
 * `ChoiceLov` option text is the display columns joined by the separator (a space; `setSeperator` changes it).
+* Both lists write labels, values and the separator as text: HTML in them shows as written.
 * `SearchLov` shows the key in a text field with a search button. `setUserFilterColumns` adds filter boxes above the
   popup rows; typing there filters in the browser. In-list validation is on by default
   (`Lov.doInListValidation()`): a typed value that is not in the list is refused with "Value not in list", and an empty

@@ -42,7 +42,7 @@ types include:
 |---|---|
 | `setdiv` | Replace the element with that id by new HTML (what `refresh()` sends) |
 | `setattr`, `setprop` | Set an attribute or a DOM property |
-| `displaymsg` | Show a message box: `info`, `warn`, `error` or `fatal` (what `AM.info(...)` and friends send) |
+| `displaymsg` | Show a message box: `info`, `warn`, `error` or `fatal` (what `AM.info(...)` and friends send). The text is shown as text, a line break starts a new line |
 | `reload` | Reload the page (sent when the application id in a request no longer exists) |
 | `focus` | Focus an element and scroll it into view |
 | `openwindow`, `download`, `seturl`, `settitle`, `scrolltobottom` | Window and page helpers |

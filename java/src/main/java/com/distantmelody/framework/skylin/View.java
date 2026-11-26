@@ -295,7 +295,9 @@ public class View implements SkylinBridgeVirtualMethods
 				    }
 				    catch (SQLException e ) 
 				    {
-				        throw new SkylinException(getAM(),"sql error in view " + getClass().getSimpleName() +": "+ e.getMessage());
+				        String what = "SQL error in view " + getClass().getSimpleName();
+				        getAM().fatal(getAM().logDatabaseError(what, e));
+				        throw new SkylinException(what, e);
 				    } 
 				    catch (Exception e)
 				    {
@@ -675,7 +677,7 @@ public class View implements SkylinBridgeVirtualMethods
 		catch (Exception e)
 		{
 			Throwable reported = e.getCause() == null ? e : e.getCause();
-			am.error(reported.getMessage() == null ? reported.toString() : reported.getMessage());
+			am.error(am.logDatabaseError("Could not bind the Oracle array " + name + " in view " + getClass().getSimpleName(), reported));
 		}
 		setBindVar(name, arrayClass, insertParameter);
 	}

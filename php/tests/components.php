@@ -1,8 +1,8 @@
 <?php
 /*
  * Checks the component features that need no backend: $this->name finding a component before the AM, setRendered,
- * TabStrip tabs that are not rendered, FileArea's markup and after-upload handler, finalInit running after the screen
- * file, and the setters that return the component for chaining. Java objects are stand-ins, so no dev stack is needed.
+ * TabStrip tabs that are not rendered, FileArea's markup and after-upload handler, escaping in ChoiceLov and the
+ * SearchLov popup, finalInit running after the screen file, and the setters that return the component for chaining. Java objects are stand-ins, so no dev stack is needed.
  *
  *   php php/tests/components.php
  *
@@ -28,6 +28,8 @@ require __DIR__.'/../skylin/TabStrip.php';
 require __DIR__.'/../skylin/Splitter.php';
 require __DIR__.'/../skylin/Table.php';
 require __DIR__.'/../skylin/FileArea.php';
+require __DIR__.'/../skylin/ChoiceLov.php';
+require __DIR__.'/../skylin/SearchLov.php';
 
 /** Stands in for a Java AM: a property is a view of that name, and finalInit is recorded. */
 class StubAM
@@ -268,6 +270,76 @@ check('afterUploadE does not run while not rendered', $GLOBALS['uploaded'] === n
 $gated->setRendered('true');
 $gated->upload('0');
 check('afterUploadE runs while editable and rendered', $GLOBALS['uploaded'] === 'gated');
+
+// ---- lists: labels, values and attributes are escaped
+/** A display or filter column of a list. */
+class StubLovColumn
+{
+	private $col, $label;
+	function __construct($col, $label) { $this->col = $col; $this->label = $label; }
+	function getDisplayColumn() { return $this->col; }
+	function getDisplayLabel() { return $this->label; }
+	function getDisplayWidth() { return '150px'; }
+	function getFilterColumn() { return $this->col; }
+	function getFilterLabel() { return $this->label; }
+}
+
+/** A list row: values by column and a link id. */
+class StubLovRow extends StubRow
+{
+	private $linkId;
+	function __construct($values, $linkId) { parent::__construct($values); $this->linkId = $linkId; }
+	function getLinkId() { return $this->linkId; }
+}
+
+/** A list view with one display and filter column, the city, whose label holds markup. */
+class StubLov
+{
+	private $rows;
+	function __construct($rows) { $this->rows = $rows; }
+	function executeQueryOnOpen() { return false; }
+	function getRows() { return $this->rows; }
+	function getDisplayColumns() { return array(new StubLovColumn('city', '<i>City</i>')); }
+	function getUserFilterColumns() { return array(new StubLovColumn('city', '<i>City</i>')); }
+	function getSeperator() { return ' '; }
+	function getWidth() { return '300px'; }
+}
+
+/** The form row a list field sits on: its list view, its value and whether it is editable. */
+class StubFormRow
+{
+	public $editable = true;
+	private $lov, $value;
+	function __construct($lov, $value) { $this->lov = $lov; $this->value = $value; }
+	function getLinkedView($name) { return $this->lov; }
+	function getValue($col) { return $this->value; }
+	function isUpdateable($col) { return $this->editable; }
+	function getLinkId() { return 0; }
+}
+
+$evil = '<script>alert(1)</script>&';
+$evilEscaped = '&lt;script&gt;alert(1)&lt;/script&gt;&amp;';
+$lovRows = array(new StubLovRow(array('city' => $evil), 0), new StubLovRow(array('city' => 'Cape Town'), 1));
+$formRow = new StubFormRow(new StubLov($lovRows), $evil);
+
+$choice = new ChoiceLov('city');
+$choice->setId('choice');
+$html = $choice->renderInContext(array('application' => $app, 'row' => $formRow));
+check('ChoiceLov: option text is escaped', strpos($html, '>'.$evilEscaped.'</option>') !== false && strpos($html, '<script>') === false);
+check('ChoiceLov: the matching option is still selected', strpos($html, 'selected>'.$evilEscaped.'</option>') !== false && strpos($html, '>Cape Town</option>') !== false);
+$formRow->editable = false;
+$html = $choice->renderInContext(array('application' => $app, 'row' => $formRow));
+check('ChoiceLov: the read-only label is escaped', strpos($html, '>'.$evilEscaped.'</div>') !== false && strpos($html, '<script>') === false);
+$formRow->editable = true;
+
+$search = new SearchLov('city');
+$search->setId('search');
+$search->setContextParam('application', $app);
+$search->setContextParam('row', $formRow);
+$html = $search->renderPopup();
+check('SearchLov popup: row values are escaped', strpos($html, '>'.$evilEscaped.'</div>') !== false && strpos($html, '<script>') === false);
+check('SearchLov popup: column and filter labels are escaped', substr_count($html, '&lt;i&gt;City&lt;/i&gt;') == 2 && strpos($html, '<i>') === false);
+check('SearchLov popup: the other rows are drawn as they are', strpos($html, '>Cape Town</div>') !== false);
 
 // ---- finalInit runs once for every AM, after the screen file
 $root = sys_get_temp_dir().DIRECTORY_SEPARATOR.'skylin-components-'.getmypid();

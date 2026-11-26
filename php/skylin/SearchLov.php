@@ -53,15 +53,16 @@
 			foreach($lov->getUserFilterColumns() as $filter)
 			{
 				$table = $table.'<div class="table-row" style="border-style:none">';
-				$table = $table.'<div class="col" style="border-style:none;font-size:0.85em;white-space:nowrap"><div>'.$filter->getFilterLabel().'</div></div>';
-				$table = $table.'<div class="col" style="width:100%;padding-left: 5;border-style:none;font-size:0.85em"><input class ="searchLovFilter" filter="'.$filter->getFilterColumn().'" style="width:100%;"></div>';
+				$table = $table.'<div class="col" style="border-style:none;font-size:0.85em;white-space:nowrap"><div>'.self::escapeHtml($filter->getFilterLabel()).'</div></div>';
+				$table = $table.'<div class="col" style="width:100%;padding-left: 5;border-style:none;font-size:0.85em"><input class ="searchLovFilter" filter="'.self::escapeHtml($filter->getFilterColumn()).'" style="width:100%;"></div>';
 				$table = $table.'</div>';
 			}
 			$table = $table.'</div>';
 			
 			foreach($lov->getDisplayColumns() as $col)
 			{
-				$table = $table.'<div style="width: '.$col->getDisplayWidth().'; min-width: '.$col->getDisplayWidth().'; max-width: '.$col->getDisplayWidth().';display: table-cell;font-weight: bold;color: rgb(0,60,91);font-size:0.9em">'.$col->getDisplayLabel().'</div>';
+				$width = self::escapeHtml($col->getDisplayWidth());
+				$table = $table.'<div style="width: '.$width.'; min-width: '.$width.'; max-width: '.$width.';display: table-cell;font-weight: bold;color: rgb(0,60,91);font-size:0.9em">'.self::escapeHtml($col->getDisplayLabel()).'</div>';
 				$cols=$cols.$col->getDisplayColumn().',';
 			}
 			if (strlen($cols) > 0)
@@ -69,13 +70,14 @@
 				$cols = substr($cols,0,strlen($cols) - 1);
 			}
 			$table = $table.'<div style="max-height: 60vh;overflow-y:auto;overflow-x:hidden;">';
-			$table = $table.'<div class="search_lov_container" cols="'.$cols.'">';
+			$table = $table.'<div class="search_lov_container" cols="'.self::escapeHtml($cols).'">';
 			foreach ($rows as $row)
 			{
 				$table = $table.'<div id="'.$this->getFullId().'X'.$row->getLinkId().'" class="search_lov_table-row">';
 				foreach($lov->getDisplayColumns() as $col)
 				{
-					$table = $table.'<div class="search_lov_col" style="width: '.$col->getDisplayWidth().'; min-width: '.$col->getDisplayWidth().'; max-width: '.$col->getDisplayWidth().'">'.$row->getValue($col->getDisplayColumn()).'</div>';
+					$width = self::escapeHtml($col->getDisplayWidth());
+					$table = $table.'<div class="search_lov_col" style="width: '.$width.'; min-width: '.$width.'; max-width: '.$width.'">'.self::escapeHtml($row->getValue($col->getDisplayColumn())).'</div>';
 				}
 				
 				$table = $table.'</div>';
@@ -88,7 +90,7 @@
 			
 			return '<div class="search_lov_popup" id="'.$this->getFullId().'_lov_popup">
 						<div id="'.$this->getFullId().'_lov_dialog" class="modalDialog">
-							<div style="width: '.$lov->getWidth().';">
+							<div style="width: '.self::escapeHtml($lov->getWidth()).';">
 									'.$table.'
 							</div>
 						</div>

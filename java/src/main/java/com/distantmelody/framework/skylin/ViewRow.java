@@ -903,7 +903,7 @@ public class ViewRow implements SkylinBridgeVirtualMethods
 	          return m;
 	        }
 	        else {
-	          return e.getMessage();
+	          return getAM().logDatabaseError("SQL error " + e.getErrorCode() + " validating " + col + " in " + getClass().getSimpleName(), e);
 	        }
 		}
 

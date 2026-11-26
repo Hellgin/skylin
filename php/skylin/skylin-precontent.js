@@ -546,12 +546,14 @@ function processMessage(type,message)
 		var seperator = message.indexOf(",");
 		var type =  message.substring(0,seperator);
 		var value = message.substring(seperator+1,message.length);
-	
-		var row = '<tr>\
-		<td><img src="skylin/images/'+type+'.png" height="16px" width="16px"></td>\
-		<td style="max-width:380px;word-wrap: break-word;">&nbsp'+value+'</td> \
-	  </tr>';
-		
+		if (['info', 'warn', 'error', 'fatal'].indexOf(type) < 0)
+			type = 'error';
+
+		// The message is text, never markup; a line break in it starts a new line.
+		var row = $('<tr>');
+		$('<td>').append($('<img>', { src: 'skylin/images/' + type + '.png', height: 16, width: 16, alt: type })).appendTo(row);
+		$('<td>').css({ 'max-width': '380px', 'word-wrap': 'break-word', 'white-space': 'pre-line' })
+			.text('\u00a0' + value).appendTo(row);
 		$("#sk_message_list").append(row);
 	}
 	else if (type == 'openwindow')

@@ -42,8 +42,9 @@ public class SqlUtil
            }
            catch (SQLException e) 
            {
-        	   if (am != null)am.fatal(e.getMessage());
-        	   throw new RuntimeException("Error retrieving nextval for sequence " + sequenceName +" " + e.getMessage());
+        	   String what = "Error retrieving nextval for sequence " + sequenceName;
+        	   if (am != null)am.fatal(am.logDatabaseError(what, e));
+        	   throw new RuntimeException(what, e);
                //return -1;
            }
            finally

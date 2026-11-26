@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ThreadLocalRandom;
 
 import org.java_websocket.exceptions.WebsocketNotConnectedException;
 import org.slf4j.Logger;
@@ -177,9 +178,9 @@ public class AM implements SkylinBridgeVirtualMethods
 			}
 			catch (Exception e)
 			{
-				String message = "Could not get connection from datasource " + datasourceName + ": " + e.getMessage();
-				LOG.error(message, e);
-				throw new SkylinException(this, message, e);
+				String message = "Could not get connection from datasource " + datasourceName;
+				fatal(logDatabaseError(message, e));
+				throw new SkylinException(message, e);
 			}
 			
 		}
@@ -192,9 +193,9 @@ public class AM implements SkylinBridgeVirtualMethods
 			} 
 			catch (Exception e) 
 			{
-				String message = "Could not create test connection: " + e.getMessage();
-				LOG.error(message, e);
-				throw new SkylinException(this, message, e);
+				String message = "Could not create test connection";
+				fatal(logDatabaseError(message, e));
+				throw new SkylinException(message, e);
 			}
 		}
 		else
@@ -360,18 +361,40 @@ public class AM implements SkylinBridgeVirtualMethods
 		sendMessage("displaymsg","fatal,"+message);	  
 	}
 	
-    public void error(SQLException e)
+    /**
+     * Logs a database error under a short reference and returns what the user is told instead: that a database error
+     * occurred, with the reference to find it in the log. The driver's text can hold SQL, table and column names and
+     * data, so it never goes to the browser.
+     */
+    public String logDatabaseError(String what, Throwable e)
     {
-      LOG.error("SQL error {} on {}", Integer.valueOf(e.getErrorCode()), getClass().getSimpleName(), e);
-      String type = "";
+      String reference = String.format("%08x", Integer.valueOf(ThreadLocalRandom.current().nextInt()));
+      LOG.error("{} (reference {})", what, reference, e);
+      return "A database error occurred (reference " + reference + ").";
+    }
+
+    /** The type of this AM's datasource ({@code oracle}, {@code mysql}, {@code postgresql}), or "" when unknown. */
+    protected String getDataSourceType()
+    {
       try
       {
-    	  type = ((SkylinDataSource)ConnectionLookup.getDataSource(datasourceName)).getType();
+    	  return ((SkylinDataSource)ConnectionLookup.getDataSource(datasourceName)).getType();
       }
-      catch (Exception e1)
+      catch (Exception e)
       {
-    	  LOG.error("Could not read the datasource type for {}", datasourceName, e1);
+    	  LOG.error("Could not read the datasource type for {}", datasourceName, e);
+    	  return "";
       }
+    }
+
+    /**
+     * Shows a message the database raised for the user on purpose: Oracle application errors 20900, 20901 and 20902
+     * as error, warning and info, and a PostgreSQL {@code RAISE EXCEPTION} (SQLSTATE P0001) as error. Any other
+     * database error is logged and the user sees only {@link #logDatabaseError}'s text.
+     */
+    public void error(SQLException e)
+    {
+      String type = getDataSourceType();
       if (type.equals("oracle"))
       {
 	      if (e.getErrorCode() == 20900) 
@@ -397,10 +420,10 @@ public class AM implements SkylinBridgeVirtualMethods
 	          info(m); 
 	      }
 	      else {
-	        fatal(e.getMessage());
+	        fatal(logDatabaseError("SQL error " + e.getErrorCode() + " on " + getClass().getSimpleName(), e));
 	      }
       }
-      else if (type.equals("postgresql"))
+      else if (type.equals("postgresql") && "P0001".equals(e.getSQLState()))
       {
     	  String m = e.getMessage();
     	  try
@@ -415,7 +438,7 @@ public class AM implements SkylinBridgeVirtualMethods
       }
       else
       {
-    	  fatal(e.getMessage()); 
+    	  fatal(logDatabaseError("SQL error " + e.getErrorCode() + " (" + e.getSQLState() + ") on " + getClass().getSimpleName(), e));
       }
       
     }

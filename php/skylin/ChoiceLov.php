@@ -1,5 +1,6 @@
 <?php
 require_once "Lov.php";
+/** A drop-down of the rows of the column's list view. The text of each option is escaped. */
 class ChoiceLov extends Lov
 {
 	function render()
@@ -30,6 +31,7 @@ class ChoiceLov extends Lov
 				}
 				$display=$display.$row->getValue($col->getDisplayColumn());
 			}
+			$display = self::escapeHtml($display);
 			$selected = null;
 			$lovColValue = $row->getValue($this->c('col'));
 			if ((is_null($lovColValue) && is_null($value)) 

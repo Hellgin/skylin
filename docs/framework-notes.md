@@ -104,8 +104,9 @@ checked against the code in this repository.
 * **Column types are normalised.** `Integer`, `Long`, `Short`, `Double`, `Float` and `BigInteger` columns become
   `BigDecimal`; `java.sql.Date`, `LocalDateTime` and `LocalDate` become `Timestamp`; `Blob` and `byte[]` become
   `SkylinBlob`. A column name with anything but letters, digits and `_` stops column generation; give it an alias.
-* **`executeQuery()` and errors.** A `SQLException` becomes a fatal message box. Any other exception is printed and
-  swallowed, and the view ends up empty.
+* **`executeQuery()` and errors.** A `SQLException` is logged and becomes a fatal message box that says only that a
+  database error occurred, with a reference to the log entry. Any other exception is printed and swallowed, and the
+  view ends up empty.
 * **`executeQuery()` with no query** returns before it clears the rows, so rows built in code stay.
 * **`setEditableColumns` with a name the view does not have** shows a fatal message instead of throwing.
 * **Sorting** compares `BigDecimal` columns as numbers and every other column by its text (`10` before `2`).
@@ -114,9 +115,12 @@ checked against the code in this repository.
 * **Move rows with `ViewRow.transfer`.** It fixes the link id and the cached ids; moving a row by hand does not.
 * **Bridge types.** `Long`, `Timestamp` and other objects reach PHP as proxies (`strlen` on one is not its text). A
   `BigDecimal` reaches PHP as a 64-bit float.
-* **`AM.error(SQLException)`** shows Oracle application errors 20900, 20901 and 20902 as error, warning and info, takes
-  the message text out of a PostgreSQL error, and shows any other database's error as a fatal message with the driver's
-  text.
+* **`AM.error(SQLException)`** shows Oracle application errors 20900, 20901 and 20902 as error, warning and info, and a
+  PostgreSQL `RAISE EXCEPTION` (SQLSTATE `P0001`) as error, with the message text the database raised. Any other
+  database error is logged with the driver's text under a short reference, and the user sees only "A database error
+  occurred (reference …)" (`AM.logDatabaseError`). The same applies to a failed query, a failed connection, a
+  `SQLException` during field validation, `setBindVarArray` and `SqlUtil.nextVal`. To show a database message to the
+  user, raise it in one of those forms; MySQL has none.
 * **The datasource type defaults to `oracle`.** Set `"type"` for MySQL and PostgreSQL. An unknown type stops the JVM
   when the pool first connects.
 
