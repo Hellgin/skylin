@@ -116,7 +116,7 @@ public class View implements SkylinBridgeVirtualMethods
 		}
 		if (!am.initialized)
 		{
-			am.views.add(this);
+			am.addView(this);
 		}
 	}
 	

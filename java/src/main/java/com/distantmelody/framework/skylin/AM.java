@@ -10,7 +10,6 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
@@ -35,8 +34,9 @@ public class AM implements SkylinBridgeVirtualMethods
 {
 	private static final Logger LOG = LoggerFactory.getLogger(AM.class);
 
+	/** The AM's root views in the order they were created. Fixed once the AM initializes. */
 	protected ArrayList<View> views = new ArrayList<View>();
-	private String[] viewNames;
+	private final HashMap<String,View> viewsByName = new HashMap<String,View>();
 
 	
 	private String datasourceName = null;
@@ -48,8 +48,6 @@ public class AM implements SkylinBridgeVirtualMethods
 	String testConnectionUrl;
 	
 	Map viewMap = new ViewMap(this);	
-	String lastViewObjectRetrievedName = "";
-	View lastViewObjectRetrieved;	
 
 	public boolean initialized;
 	public boolean initializedFinal;
@@ -94,75 +92,39 @@ public class AM implements SkylinBridgeVirtualMethods
 	//deprecated use getView
 	public View getViewObject(String name)
 	{
-		if (name.equals(lastViewObjectRetrievedName))
-		{
-			return lastViewObjectRetrieved;
-		}
-		int index = Arrays.binarySearch(viewNames, name);
-		if (index < 0)
-		{
-			throw new SkylinException(this,"Cannot find view object " + name + " in application module " + getClass().getSimpleName());
-		}
-		lastViewObjectRetrieved = views.get(index);
-		lastViewObjectRetrievedName = viewNames[index];
-		return lastViewObjectRetrieved;
+		return getView(name);
 	}
 	
 	public View getView(String name)
 	{
-		if (name.equals(lastViewObjectRetrievedName))
-		{
-			return lastViewObjectRetrieved;
-		}
-		int index = Arrays.binarySearch(viewNames, name);
-		if (index < 0)
+		View view = viewsByName.get(name);
+		if (view == null)
 		{
 			throw new SkylinException(this,"Cannot find view object " + name + " in application module " + getClass().getSimpleName());
 		}
-		lastViewObjectRetrieved = views.get(index);
-		lastViewObjectRetrievedName = viewNames[index];
-		return lastViewObjectRetrieved;
+		return view;
 	}
 
 	
+	/** Registers a root view, from the View constructor before the AM initializes. */
+	void addView(View view)
+	{
+		views.add(view);
+		if (viewsByName.putIfAbsent(view.getName(), view) != null)
+		{
+			LOG.warn("{} has two views named {}; getView returns the first", getClass().getSimpleName(), view.getName());
+		}
+	}
+	
 	private void initInternal()
 	{
-		//Util.setSessionObject(getClass().getName(),this);
-		viewNames = new String[views.size()];
-		for (int i = 0; i < viewNames.length;i++)
-		{
-			viewNames[i] = views.get(i).getName();
-		}
-		
-		Arrays.sort(viewNames);
-		
-		ArrayList<View> newViews = new ArrayList<View>();
-		
-		for (int i = 0; i < viewNames.length;i++)
-		{
-			loop:
-			for (int j = 0; j < views.size();j++)
-			{
-				if (views.get(j).getName().equals(viewNames[i]))
-				{
-					newViews.add(views.get(j));
-					views.remove(j);
-					break loop;
-				}
-			}
-		}
-
 		initialized = true;
 		
-		views = newViews;
-		for (int i = 0; i < views.size();i++)
+		for (View view:views)
 		{
-			//viewMap.put(views.get(i).getClass().getSimpleName(), views.get(i));
-			views.get(i).initInternal();
-			views.get(i).init();
+			view.initInternal();
+			view.init();
 		}
-		
-
 	}
 	
 	
@@ -641,16 +603,12 @@ public class AM implements SkylinBridgeVirtualMethods
 
 	@Override
 	public Object handleVirtualMethodCall(String name, Object[] params, boolean[] matchFound) {
-		if (params.length == 0)
-		for (View v:views)
+		View view = params.length == 0 ? viewsByName.get(name) : null;
+		if (view != null)
 		{
-			if (name.equals(v.getName()))
-			{
-				matchFound[0] = true;
-				return v;
-			}
+			matchFound[0] = true;
 		}
-		return null;
+		return view;
 	}
 	
 	public QuickRoleLookup role()

@@ -92,8 +92,12 @@ checked against the code in this repository.
 * **`EditViewRow.setValueInternal` returns immediately** when the new value equals the current one, so the column is
   not stored again and not marked modified. `setValue` calls that and then continues, so code after `super.setValue`
   still runs for an equal value. Read the previous value before `super.setValue`.
-* **`getViewObject` works after `setDataSource`.** That call indexes the views (`initInternal`) and then runs `init()`.
-  The AM constructor runs before it, so `getViewObject` in the constructor fails.
+* **`getView` finds a view as soon as it is created**, also in the AM constructor, but the views are initialized
+  (`initInternal`, then `init()`) only by `setDataSource`, which runs after the constructor. Query them after that.
+* **The AM's views are fixed when it initializes.** Views created in its constructor are its root views, in the order
+  they were created. A view created later is a linked view (`getLinkedView`) or a loose view that only its creator
+  knows; `getView` does not find it. Two views with the same name both stay root views, and `getView` returns the
+  first (the AM logs a warning); give the second its own name with `nextName`.
 * **A row class filled by a query** must be concrete and have a public constructor that takes the `View`. A nested
   class used from another package must be public.
 * **`SqlUtil.safeClose` rolls the connection back.** A write on a connection from `getNewConnection` is kept only when
@@ -205,6 +209,9 @@ checked against the code in this repository.
 
 * Framework messages go through SLF4J. `LOG_PATH` still copies standard output and standard error into the dated files, and each of those lines is also passed to SLF4J. An uncaught PHP exception is written to the PHP error log and to `com.distantmelody.framework.skylin.util.Log`.
 * MySQL support in `DatabaseConnector` (see [configuration.md](configuration.md#datasourcejson)).
+* The AM finds views by name in a map filled as each view is created. The original sorted its views by name when it
+  initialized and looked them up with a binary search (plus a one-entry cache), so `getView` failed in the
+  constructor, and `views` is now in creation order instead of name order.
 * Oracle `ROWID` handling was removed from `EditView` and `EditViewRowDeleted`. `View.setBindVarArray` builds an
   `oracle.sql.ARRAY` by reflection, so the framework does not compile against the Oracle driver. Calling it without
   that driver fails. Oracle remains a datasource type.
