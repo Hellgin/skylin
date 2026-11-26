@@ -61,14 +61,18 @@ class Template extends Component
 	 */
 	function getChannel()
 	{
-		$am = $this->getAM();
-		if (is_null($am))
-		{
-			throw new Exception('A template with <skylin_channel> needs an application with an AM');
-		}
 		$link = $this->getLinkId();
-		$row = (java_is_null($link) || (string)$link === '0') ? null : $this->r();
-		return $am->channel((string)$this->getId(), $row);
+		if (java_is_null($link) || (string)$link === '0')
+		{
+			$am = $this->getAM();
+			if (is_null($am))
+			{
+				throw new Exception('A template with <skylin_channel> and no row needs an application with an AM');
+			}
+			return $am->channel((string)$this->getId());
+		}
+		$row = $this->r();
+		return $row->getAM()->channel($this->a()->getApplicationId(), (string)$this->getId(), $row);
 	}
 	
 	function render()

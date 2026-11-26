@@ -131,7 +131,7 @@ public class SocketServer extends WebSocketServer{
 			TemplateChannel.Target target = target(websocketSession, bs, m[1]);
 			if (target != null)
 			{
-				target.am().receiveChannelBinaryMessage(message, target.templateId(), target.row());
+				target.receiveBinary(message);
 			}
 		}
     }
@@ -182,7 +182,7 @@ public class SocketServer extends WebSocketServer{
     				LOG.warn("Dropped a message for template {} that is not JSON ({})", target.templateId(), e.getClass().getSimpleName());
     				return;
     			}
-    			target.am().receiveChannelMessage(in, target.templateId(), target.row());
+    			target.receive(in);
     		}
     		else if ("CONNECTED".equals(m[0]))
     		{

@@ -45,10 +45,11 @@ class StubAM
 	{
 		return 57;
 	}
-	function channel($templateId, $row)
+	/** channel($templateId) without a row, channel($applicationId, $templateId, $row) on one. */
+	function channel(...$args)
 	{
-		$this->channels[] = array($templateId, $row);
-		return 'channel-of-'.$templateId;
+		$this->channels[] = $args;
+		return 'channel-of-'.$args[count($args) == 1 ? 0 : 1];
 	}
 	function finalInit()
 	{
@@ -353,12 +354,14 @@ check('SearchLov popup: column and filter labels are escaped', substr_count($htm
 check('SearchLov popup: the other rows are drawn as they are', strpos($html, '>Cape Town</div>') !== false);
 
 // ---- Template: <skylin_channel> asks the AM for the channel only when the template uses it
-/** A row with a link id: a Java row, or a NullViewRow (null). */
+/** A row with a link id and an AM: a Java row, or a NullViewRow (null link id). */
 class StubLinkedRow
 {
 	private $linkId;
-	function __construct($linkId) { $this->linkId = $linkId; }
+	public $am;
+	function __construct($linkId, $am = null) { $this->linkId = $linkId; $this->am = $am; }
 	function getLinkId() { return $this->linkId; }
+	function getAM() { return $this->am; }
 }
 
 function newTemplate($app, $html, $id = null)
@@ -375,25 +378,25 @@ check('Template: without <skylin_channel> the AM is not asked', $plain->render()
 
 $chat = newTemplate($app, "registerChannel('<skylin_channel>',f);wsChannelMessage('<skylin_channel>',m);", 'chat');
 check('Template: <skylin_channel> is the AM\'s channel, wherever it appears', $chat->render() === "registerChannel('channel-of-chat',f);wsChannelMessage('channel-of-chat',m);");
-check('Template: asked once per render, with the id and no row', $am->channels === array(array('chat', null)));
+check('Template: asked once per render, with the id and no row', $am->channels === array(array('chat')));
 
 $am->channels = array();
-$onRow = new StubLinkedRow('3x1x2');
+$rowAm = new StubAM();
+$onRow = new StubLinkedRow('3x1x2', $rowAm);
 $card = newTemplate($app, '<skylin_channel>', 'card');
 $card->setContextParam('row', $onRow);
 $card->render();
-check('Template: on a row, the row is passed', $am->channels === array(array('card', $onRow)));
+check('Template: on a row, the row\'s AM is asked, with the application id, the id and the row', $rowAm->channels === array(array(1, 'card', $onRow)) && $am->channels === array());
 
-$am->channels = array();
-$card->setContextParam('row', new StubLinkedRow(null));
+$card->setContextParam('row', new StubLinkedRow(null, $rowAm));
 $card->render();
-check('Template: a row without a link id (NullViewRow) counts as no row', $am->channels === array(array('card', null)));
+check('Template: a row without a link id (NullViewRow) counts as no row', $am->channels === array(array('card')));
 
 $am->channels = array();
 $numbered = newTemplate($app, '<skylin_channel>');
 setPrivate($numbered, 'Component', 'id', 5);
 $numbered->render();
-check('Template: a numbered template passes its number as a string', $am->channels === array(array('5', null)));
+check('Template: a numbered template passes its number as a string', $am->channels === array(array('5')));
 
 // ---- finalInit runs once for every AM, after the screen file
 $root = sys_get_temp_dir().DIRECTORY_SEPARATOR.'skylin-components-'.getmypid();

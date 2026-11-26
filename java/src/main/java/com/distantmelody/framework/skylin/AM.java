@@ -536,63 +536,85 @@ public class AM implements SkylinBridgeVirtualMethods
 	}
 
 	/**
-	 * A message from a template's page ({@code wsChannelMessage} or {@code messageChannel}). {@code templateId} is the
-	 * template's id ({@code setId}, or the number it got when it was first rendered) and {@code row} the row it
-	 * rendered on, {@code null} when it had none. Runs outside the session lock. What it returns goes back only to
-	 * {@code messageChannel}.
+	 * A message from the page of a template ({@code wsChannelMessage} or {@code messageChannel}). It comes here from a
+	 * template of this AM's application that has no row ({@code row} is {@code null}), and from
+	 * {@link ViewRow#receiveChannelMessage} for a template on a row of this AM, of any application. The template is
+	 * {@code templateId} ({@code setId}, or the number it got when it was first rendered) of application
+	 * {@code applicationId}. Runs outside the session lock. What it returns goes back only to {@code messageChannel}.
 	 */
-	public byte[] receiveChannelMessage(J message, String templateId, ViewRow row) {
+	public byte[] receiveChannelMessage(J message, int applicationId, String templateId, ViewRow row) {
 		return null;
 	}
 	
 	/** A binary message from a template's page ({@code wsChannelBinaryMessage}); see {@link #receiveChannelMessage}. */
-	public byte[] receiveChannelBinaryMessage(byte[] message, String templateId, ViewRow row) {
+	public byte[] receiveChannelBinaryMessage(byte[] message, int applicationId, String templateId, ViewRow row) {
 		return null;
 	}
 	
 	/**
-	 * The channel of a template of this AM, rendered on {@code row} ({@code null} when it has none): what its
+	 * The channel of template {@code templateId} of this AM's application, without a row: what its
 	 * {@code <skylin_channel>} binding gives the page. See {@link TemplateChannel}.
 	 */
-	public String channel(String templateId, ViewRow row)
+	public String channel(String templateId)
 	{
-		return TemplateChannel.build(this, templateId, row);
+		return TemplateChannel.build(this, frontEndApplicationId, templateId, null);
+	}
+	
+	/**
+	 * The channel of template {@code templateId} of application {@code applicationId}, rendered on {@code row}. On a
+	 * row the channel names the row's AM, whichever AM builds it; without one ({@code null}) it names this AM.
+	 */
+	public String channel(int applicationId, String templateId, ViewRow row)
+	{
+		return TemplateChannel.build(this, applicationId, templateId, row);
 	}
 	
 	public void channelMessage(J message, String templateId)
 	{
-		channelMessage(message.toString(), templateId, null);
-	}
-	
-	public void channelMessage(J message, String templateId, ViewRow row)
-	{
-		channelMessage(message.toString(), templateId, row);
-	}
-	
-	public void channelMessage(String message, String templateId)
-	{
-		channelMessage(message, templateId, null);
+		channelMessage(message.toString(), templateId);
 	}
 	
 	/**
-	 * Sends a message to the handler the page of this AM's template registered with {@code registerChannel}. It goes
-	 * over the WebSocket only, and is dropped when the page is not connected.
+	 * Sends a message to the handler that the page of template {@code templateId} of this AM's application, without a
+	 * row, registered with {@code registerChannel}. It goes over the WebSocket only, and is dropped when the page is not
+	 * connected.
 	 */
-	public void channelMessage(String message, String templateId, ViewRow row)
+	public void channelMessage(String message, String templateId)
 	{
-		String m = "custom,"+channel(templateId, row)+","+message;
+		sendChannelText(channel(templateId), message);
+	}
+	
+	public void channelMessage(J message, int applicationId, String templateId, ViewRow row)
+	{
+		channelMessage(message.toString(), applicationId, templateId, row);
+	}
+	
+	/** Sends a message to the page of template {@code templateId} of application {@code applicationId} on {@code row}. */
+	public void channelMessage(String message, int applicationId, String templateId, ViewRow row)
+	{
+		sendChannelText(channel(applicationId, templateId, row), message);
+	}
+	
+	private void sendChannelText(String channel, String message)
+	{
+		String m = "custom,"+channel+","+message;
 		m = "1,"+m.length()+"-"+m;//the browser counts UTF-16 code units, which is what String.length() counts
 		session.sendWebSocketText(topFrontEndApplicationId, m);
 	}
 	
 	public void channelBinaryMessage(byte[] message, String templateId)
 	{
-		channelBinaryMessage(message, templateId, null);
+		sendChannelBinary(channel(templateId), message);
 	}
 	
-	public void channelBinaryMessage(byte[] message, String templateId, ViewRow row)
+	public void channelBinaryMessage(byte[] message, int applicationId, String templateId, ViewRow row)
 	{
-		byte[] header = channel(templateId, row).getBytes(StandardCharsets.UTF_8);
+		sendChannelBinary(channel(applicationId, templateId, row), message);
+	}
+	
+	private void sendChannelBinary(String channel, byte[] message)
+	{
+		byte[] header = channel.getBytes(StandardCharsets.UTF_8);
 		byte[] m = new byte[1 + header.length + message.length]; 
 		m[0] = (byte) header.length;
 		System.arraycopy(header, 0, m, 1, header.length);

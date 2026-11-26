@@ -243,6 +243,38 @@ public class ViewRow implements SkylinBridgeVirtualMethods
 	{
 		return view.getAM();
 	}
+
+	/**
+	 * A message from the page of template {@code templateId} of application {@code applicationId}, which rendered on
+	 * this row. Passes it to the AM with this row; override it to handle the row's messages in the row. See
+	 * {@link AM#receiveChannelMessage}.
+	 */
+	public byte[] receiveChannelMessage(J message, int applicationId, String templateId)
+	{
+		return getAM().receiveChannelMessage(message, applicationId, templateId, this);
+	}
+
+	/** A binary message from the page of a template on this row; see {@link #receiveChannelMessage}. */
+	public byte[] receiveChannelBinaryMessage(byte[] message, int applicationId, String templateId)
+	{
+		return getAM().receiveChannelBinaryMessage(message, applicationId, templateId, this);
+	}
+
+	/** Sends a message to the page of template {@code templateId} of application {@code applicationId} on this row. */
+	public void channelMessage(J message, int applicationId, String templateId)
+	{
+		getAM().channelMessage(message, applicationId, templateId, this);
+	}
+
+	public void channelMessage(String message, int applicationId, String templateId)
+	{
+		getAM().channelMessage(message, applicationId, templateId, this);
+	}
+
+	public void channelBinaryMessage(byte[] message, int applicationId, String templateId)
+	{
+		getAM().channelBinaryMessage(message, applicationId, templateId, this);
+	}
 	
 	public Object[] setValueFromFrontEnd(String name, Object value)
 	{

@@ -252,11 +252,15 @@ checked against the code in this repository.
   carry a session id. The session cookie is now HttpOnly and, by default, SameSite=Lax.
 * Custom messages are addressed to a template instead of an AM and a channel name. The original addressed them as
   `<AM id>` plus a free channel name (`DEFAULT` unless given); a template now gets its channel from the
-  `<skylin_channel>` binding, which also names the row it rendered on. Replaced, with no compatibility layer:
+  `<skylin_channel>` binding, which also names its application and the row it rendered on. A template on a row talks
+  to the row, which passes messages to its own AM unless its class handles them. Replaced, with no compatibility
+  layer:
   * Java: `receiveMessage(J)`, `receiveMessage(J, channel)`, `receiveBinaryMessage(bytes, channel)`, `customMessage`
-    and `customBinaryMessage` became `receiveChannelMessage(J, templateId, row)`,
-    `receiveChannelBinaryMessage(bytes, templateId, row)`, `channelMessage(message, templateId[, row])` and
-    `channelBinaryMessage(bytes, templateId[, row])`.
+    and `customBinaryMessage` became `AM.receiveChannelMessage(J, applicationId, templateId, row)` and
+    `receiveChannelBinaryMessage`, `ViewRow.receiveChannelMessage(J, applicationId, templateId)` and
+    `receiveChannelBinaryMessage`, and for sending `AM.channelMessage(message, templateId)`,
+    `AM.channelMessage(message, applicationId, templateId, row)`, `ViewRow.channelMessage(message, applicationId,
+    templateId)` and the matching `channelBinaryMessage`s.
   * JavaScript: `registerToMessageChannel(amId, func, channel)`, `deregisterFromMessageChannel`,
     `deregisterAllFromMessageChannel`, `wsAmMessage(amId, message, channel)`, `wsAmBinaryMessage` and
     `messageAM(amId, message, channel)` became `registerChannel(channel, func)`, `deregisterChannel(channel)`,

@@ -440,9 +440,9 @@ abstract class BridgeProtocolTestBase
 	static class RecordingAM extends AM
 	{
 		@Override
-		public byte[] receiveChannelMessage(J in, String templateId, ViewRow row)
+		public byte[] receiveChannelMessage(J in, int applicationId, String templateId, ViewRow row)
 		{
-			return ("got " + templateId + " " + in).getBytes(StandardCharsets.UTF_8);
+			return ("got " + applicationId + " " + templateId + " " + in).getBytes(StandardCharsets.UTF_8);
 		}
 	}
 
@@ -462,18 +462,20 @@ abstract class BridgeProtocolTestBase
 		other.objects.put(5, new RecordingAM());
 		RecordingAM own = new RecordingAM();
 		own.setObjectId(2);
+		own.setFrontEndApplicationId(1);
 		BridgeSession.sessions.get(SESSION).objects.put(2, own);
 		try
 		{
-			assertTrue(messageAM("{\"channel\":\"2xchat\",\"message\":{\"a\":1}}").endsWith("got chat {\"a\":1}"));
-			assertFalse(messageAM("{\"sessionId\":\"other-session\",\"channel\":\"5xchat\",\"message\":{}}").contains("got"), "sessionId in the body is ignored");
-			assertFalse(messageAM("{\"channel\":\"1xchat\",\"message\":{}}").contains("got"), "an object that is not an AM");
-			assertFalse(messageAM("{\"channel\":\"999xchat\",\"message\":{}}").contains("got"), "no such object");
-			assertFalse(messageAM("{\"channel\":\"2xa,b\",\"message\":{}}").contains("got"), "not a template id");
+			assertTrue(messageAM("{\"channel\":\"2x1xchat\",\"message\":{\"a\":1}}").endsWith("got 1 chat {\"a\":1}"));
+			assertFalse(messageAM("{\"sessionId\":\"other-session\",\"channel\":\"5x1xchat\",\"message\":{}}").contains("got"), "sessionId in the body is ignored");
+			assertFalse(messageAM("{\"channel\":\"1x1xchat\",\"message\":{}}").contains("got"), "an object that is not an AM");
+			assertFalse(messageAM("{\"channel\":\"999x1xchat\",\"message\":{}}").contains("got"), "no such object");
+			assertFalse(messageAM("{\"channel\":\"2x1xa,b\",\"message\":{}}").contains("got"), "not a template id");
+			assertFalse(messageAM("{\"channel\":\"2xchat\",\"message\":{}}").contains("got"), "no application id");
 			assertFalse(messageAM("{\"channel\":2,\"message\":{}}").contains("got"), "the channel is not a string");
 			assertFalse(messageAM("{\"amId\":2,\"message\":{}}").contains("got"), "no channel");
 			assertFalse(messageAM("{").contains("got"), "not JSON");
-			messageAM("{\"channel\":\"2xchat\",\"message\":" + "[".repeat(100_000) + "]".repeat(100_000) + "}");
+			messageAM("{\"channel\":\"2x1xchat\",\"message\":" + "[".repeat(100_000) + "]".repeat(100_000) + "}");
 			assertEquals(MIXED, invoke("echo", MIXED), "the connection still works");
 		}
 		finally

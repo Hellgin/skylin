@@ -133,19 +133,20 @@ class SocketServerLimitsTest
 		String amId = own.instantiateByName(RecordingAM.class.getName());
 		RecordingAM am = (RecordingAM) own.getObject(Integer.parseInt(amId));
 		am.setObjectId(Integer.parseInt(amId));
+		am.setFrontEndApplicationId(1);
 
 		Client client = new Client("PHPSESSID=" + ID);
 		assertTrue(client.connectBlocking(5, TimeUnit.SECONDS));
-		client.send("AM," + am.channel("bad", null) + ",{not json");
-		client.send("AM,999xgame,{}");
+		client.send("AM," + am.channel("bad") + ",{not json");
+		client.send("AM,999x1xgame,{}");
 		assertTrue(client.closed.await(5, TimeUnit.SECONDS), "an AM the session does not have refreshes the page");
 		assertEquals("FORCE_REFRESH", client.lastText);
 
 		client = new Client("PHPSESSID=" + ID);
 		assertTrue(client.connectBlocking(5, TimeUnit.SECONDS));
-		client.send("AM,1xgame");
-		client.send("AM," + am.channel("game", null) + ",{\"x\":1,\"y\":2}");
-		byte[] header = ("AM," + am.channel("board", null)).getBytes(StandardCharsets.UTF_8);
+		client.send("AM,1x1xgame");
+		client.send("AM," + am.channel("game") + ",{\"x\":1,\"y\":2}");
+		byte[] header = ("AM," + am.channel("board")).getBytes(StandardCharsets.UTF_8);
 		ByteBuffer binary = ByteBuffer.allocate(1 + header.length + 2);
 		binary.put((byte) header.length).put(header).put((byte) 9).put((byte) 8).flip();
 		client.send(binary);
@@ -172,7 +173,7 @@ class SocketServerLimitsTest
 		volatile byte[] binary;
 
 		@Override
-		public byte[] receiveChannelMessage(J in, String templateId, ViewRow row)
+		public byte[] receiveChannelMessage(J in, int applicationId, String templateId, ViewRow row)
 		{
 			this.message = in;
 			this.templateId = templateId;
@@ -182,7 +183,7 @@ class SocketServerLimitsTest
 		}
 
 		@Override
-		public byte[] receiveChannelBinaryMessage(byte[] message, String templateId, ViewRow row)
+		public byte[] receiveChannelBinaryMessage(byte[] message, int applicationId, String templateId, ViewRow row)
 		{
 			this.binary = message;
 			this.binaryTemplateId = templateId;

@@ -256,19 +256,23 @@ function registered with `register()`, then forwards to the first AM.
   `ws://127.0.0.1:1001/SessionSocket`. With `WEB_SOCKET_ALT_PORT:true` the browser connects to `ws://<host>:1001`
   directly.
 * Uses: server push from an AM (`AM.eval` outside a request, `channelMessage`), messages between a template and its
-  AM, a ping that keeps the session active, and `FORCE_REFRESH`, which reloads the page. Screens that do not push work
+  AM or row, a ping that keeps the session active, and `FORCE_REFRESH`, which reloads the page. Screens that do not push work
   without it.
 * A connection belongs to the session of the `PHPSESSID` cookie its handshake carries, so the browser's messages name
   no session: `CONNECTED,<app id>`, `PING,<app id>`, `AM,<channel>,<message>` (`wsChannelMessage`), and for
   `wsChannelBinaryMessage` one byte with the header's length, the header `AM,<channel>`, then the bytes. The AM sends
   `custom,<channel>,<message>`, or binary with the header `<channel>`.
 * `<channel>` is a template's channel (`TemplateChannel`, the template's `<skylin_channel>` binding):
-  `<AM id>x<template id>`, or on a row `<AM id>x<template id>x<row's AM id>x<root view index>x<row link id>`. The AM
-  ids are the AMs' object ids, and the root view index is the position of the row's root view among its AM's views.
-  The server resolves it to `AM.receiveChannelMessage(message, templateId, row)` of the first AM. It drops a channel
-  that is malformed, names an object that is not an AM of the session, or a row AM of another top application (logged
-  as a warning, without the content), and a row that is gone (debug). An AM the session does not have gets
-  `FORCE_REFRESH`. These messages run outside the session lock.
+  `<AM id>x<application id>x<template id>`, or on a row
+  `<AM id>x<application id>x<template id>x<root view index>x<row link id>`. The AM is the template's AM without a
+  row and the row's AM on one; its id is its object id. The application id is the template's application, because
+  template ids are unique only within one. The root view index is the position of the row's root view among its AM's
+  views.
+* The server resolves a channel without a row to `AM.receiveChannelMessage(message, applicationId, templateId, null)`,
+  and one on a row to `ViewRow.receiveChannelMessage(message, applicationId, templateId)`, which passes it to the
+  row's AM unless the row class overrides it. It drops a channel that is malformed, or names an application without
+  a row that its AM does not belong to (logged as a warning, without the content), and a row that is gone (debug).
+  A channel whose AM is not an AM of the session gets `FORCE_REFRESH`. These messages run outside the session lock.
 * A connection whose cookie names no session in this JVM is sent `FORCE_REFRESH` and closed. After a JVM restart that
   reloads the page, which creates the session again and reconnects.
 * The cookie alone identifies the browser, and the server does not check `Origin`. Keep the session cookie SameSite
@@ -293,9 +297,9 @@ function registered with `register()`, then forwards to the first AM.
 * Built-in services (`com.distantmelody.framework.skylin.services.builtin`): `SessionBlob` (downloads, used by
   `SkylinBlob.getUrl()`; a link is single-use and expires after 10 seconds), `FileUpload` and `MessageAM`.
 * `MessageAM` (`messageChannel(channel, message)` in the page's JavaScript, the body
-  `{"channel":"<channel>","message":<json>}`) passes the message to `receiveChannelMessage` of the template's AM in the
-  caller's own session, through `restless.php`, and answers with what it returns. It resolves the channel as the
-  WebSocket does. A caller outside the browser sends the session as the `PHPSESSID` cookie. A body that is not a
+  `{"channel":"<channel>","message":<json>}`) passes the message to `receiveChannelMessage` of the template's row, or
+  of its AM without a row, in the caller's own session, through `restless.php`, and answers with what that returns.
+  It resolves the channel as the WebSocket does. A caller outside the browser sends the session as the `PHPSESSID` cookie. A body that is not a
   message, or a channel that does not resolve, is logged and gets an empty answer.
 * `FileUpload` (`restless.php`, the file as the body, the `Authorization` header
   `<view id>_<token>_<file name>` with the file name URL-encoded) adds a row with the file name and the file to a view

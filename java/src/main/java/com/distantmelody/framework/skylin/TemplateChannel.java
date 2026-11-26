@@ -6,16 +6,19 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.distantmelody.framework.skylin.bridge.BridgeSession;
+import com.distantmelody.library.json.J;
 
 /**
  * The address of a template's custom messages. A template hands it to its page through the {@code <skylin_channel>}
  * binding, the page passes it with every message it sends, and the AM addresses messages to the template with it.
  * <ul>
- * <li>Without a row: {@code <AM id>x<template id>}.</li>
- * <li>On a row: {@code <AM id>x<template id>x<row's AM id>x<root view index>x<row link id>}.</li>
+ * <li>Without a row: {@code <AM id>x<application id>x<template id>}, where the AM is the template's AM.</li>
+ * <li>On a row: {@code <AM id>x<application id>x<template id>x<root view index>x<row link id>}, where the AM is the
+ * row's AM.</li>
  * </ul>
- * The AM ids are the AMs' object ids in the session; the first is the template's AM, which receives the messages.
- * The root view index is the position of the row's root view among the views of the row's AM, which never change
+ * The AM id is the AM's object id in the session. A template id is unique within its application, so the application
+ * id and the template id together name one template, also when templates of several applications render on rows of
+ * the same AM. The root view index is the position of the row's root view among its AM's views, which never change
  * after the AM initializes.
  */
 public final class TemplateChannel
@@ -32,9 +35,27 @@ public final class TemplateChannel
 	{
 	}
 
-	/** The template, and the row it rendered on ({@code null} when it had none), that a message came from. */
-	public record Target(AM am, String templateId, ViewRow row)
+	/**
+	 * The template a message came from: the AM of the channel, the template's application and id, and the row it
+	 * rendered on ({@code null} when it had none).
+	 */
+	public record Target(AM am, int applicationId, String templateId, ViewRow row)
 	{
+		/** Hands the message to the row's handler, or to the AM's when the template has no row. */
+		public byte[] receive(J message)
+		{
+			return row == null
+				? am.receiveChannelMessage(message, applicationId, templateId, null)
+				: row.receiveChannelMessage(message, applicationId, templateId);
+		}
+
+		/** Hands the binary message to the row's handler, or to the AM's when the template has no row. */
+		public byte[] receiveBinary(byte[] message)
+		{
+			return row == null
+				? am.receiveChannelBinaryMessage(message, applicationId, templateId, null)
+				: row.receiveChannelBinaryMessage(message, applicationId, templateId);
+		}
 	}
 
 	public enum Failure
@@ -60,16 +81,20 @@ public final class TemplateChannel
 		}
 	}
 
-	static String build(AM am, String templateId, ViewRow row)
+	/** The channel of template {@code templateId} of application {@code applicationId}; {@code am} is the template's AM. */
+	static String build(AM am, int applicationId, String templateId, ViewRow row)
 	{
 		if (templateId == null || !TEMPLATE_ID.matcher(templateId).matches())
 		{
 			throw new SkylinException(am, "A template with a channel needs an id of up to 64 letters other than x, digits, _ or -, not " + templateId);
 		}
-		String channel = am.getObjectId() + "x" + templateId;
+		if (applicationId < 0)
+		{
+			throw new SkylinException(am, "The channel of template " + templateId + " needs its application id, not " + applicationId);
+		}
 		if (row == null)
 		{
-			return channel;
+			return am.getObjectId() + "x" + applicationId + "x" + templateId;
 		}
 		View root = row.view.getRootView();
 		int index = root.am.views.indexOf(root);
@@ -78,7 +103,7 @@ public final class TemplateChannel
 			throw new SkylinException(am, "A template with a channel cannot render on a row of view " + root.getName()
 				+ ", because that view is not one of the views of " + root.am.getClass().getSimpleName());
 		}
-		channel += "x" + root.am.getObjectId() + "x" + index + "x" + row.getLinkId();
+		String channel = root.am.getObjectId() + "x" + applicationId + "x" + templateId + "x" + index + "x" + row.getLinkId();
 		if (channel.length() > MAX_LENGTH)
 		{
 			throw new SkylinException(am, "The channel of template " + templateId + " is longer than " + MAX_LENGTH + " characters, because its row is nested too deep");
@@ -87,9 +112,9 @@ public final class TemplateChannel
 	}
 
 	/**
-	 * The template and row a channel from the browser names, checked against the session: both AMs must be AMs of
-	 * this session with the same top application, and the row must still exist. A malformed channel is logged as a
-	 * warning and a stale row at debug level; the caller decides what an unknown AM means.
+	 * The template and row a channel from the browser names, checked against the session: the AM must be an AM of this
+	 * session, a template without a row must belong to that AM's application, and the row must still exist. A malformed
+	 * channel is logged as a warning and a stale row at debug level; the caller decides what an unknown AM means.
 	 */
 	public static Target resolve(BridgeSession session, String channel) throws UnresolvableChannel
 	{
@@ -98,11 +123,17 @@ public final class TemplateChannel
 			throw malformed("it is missing or too long");
 		}
 		String[] parts = channel.split("x", 5);
-		if (parts.length != 2 && parts.length != 5)
+		if (parts.length != 3 && parts.length != 5)
 		{
 			throw malformed("it has " + parts.length + " parts");
 		}
-		if (!TEMPLATE_ID.matcher(parts[1]).matches())
+		int applicationId = number(parts[1]);
+		if (applicationId < 0)
+		{
+			throw malformed("the application id is negative");
+		}
+		String templateId = parts[2];
+		if (!TEMPLATE_ID.matcher(templateId).matches())
 		{
 			throw malformed("the template id is not one a channel can have");
 		}
@@ -110,20 +141,16 @@ public final class TemplateChannel
 		{
 			throw new UnresolvableChannel(Failure.UNKNOWN_AM, "the session has no AM " + parts[0]);
 		}
-		if (parts.length == 2)
+		if (parts.length == 3)
 		{
-			return new Target(am, parts[1], null);
-		}
-		if (!(session.getObject(number(parts[2])) instanceof AM rowAm))
-		{
-			throw malformed("the row's AM is not an AM of the session");
-		}
-		if (rowAm.topFrontEndApplicationId != am.topFrontEndApplicationId)
-		{
-			throw malformed("the row's AM belongs to another top application");
+			if (applicationId != am.frontEndApplicationId)
+			{
+				throw malformed("a template without a row names an application its AM does not belong to");
+			}
+			return new Target(am, applicationId, templateId, null);
 		}
 		int index = number(parts[3]);
-		if (index < 0 || index >= rowAm.views.size())
+		if (index < 0 || index >= am.views.size())
 		{
 			throw malformed("there is no root view " + index);
 		}
@@ -137,13 +164,13 @@ public final class TemplateChannel
 		{
 			throw malformed("the row link id does not end at a row");
 		}
-		ViewRow row = row(rowAm.views.get(index), chain);
+		ViewRow row = row(am.views.get(index), chain);
 		if (row == null)
 		{
-			LOG.debug("Dropped a message for template {}: its row is gone", parts[1]);
+			LOG.debug("Dropped a message for template {}: its row is gone", templateId);
 			throw new UnresolvableChannel(Failure.STALE_ROW, "the row is gone");
 		}
-		return new Target(am, parts[1], row);
+		return new Target(am, applicationId, templateId, row);
 	}
 
 	/** Alternating row and linked view link ids from the root view down; {@code null} when one is gone. */

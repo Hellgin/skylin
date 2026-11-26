@@ -18,8 +18,9 @@ import com.distantmelody.library.json.J;
 
 /**
  * {@code restless.php?com.distantmelody.framework.skylin.services.builtin.MessageAM} with the body
- * {@code {"channel":"<template channel>","message":<json>}}: hands the message to {@link AM#receiveChannelMessage} of
- * the template's AM in the caller's own session and answers with what it returns.
+ * {@code {"channel":"<template channel>","message":<json>}}: hands the message to the template's row
+ * ({@link com.distantmelody.framework.skylin.ViewRow#receiveChannelMessage}), or to its AM
+ * ({@link AM#receiveChannelMessage}) when it has no row, in the caller's own session, and answers with what that returns.
  */
 public class MessageAM extends HttpServlet
 {
@@ -61,7 +62,7 @@ public class MessageAM extends HttpServlet
 			}
 			return;
 		}
-		byte[] response = target.am().receiveChannelMessage(message, target.templateId(), target.row());
+		byte[] response = target.receive(message);
 		if (response != null)
 		{
 			resp.getOutputStream().write(response);
