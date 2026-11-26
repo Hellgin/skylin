@@ -160,9 +160,11 @@ checked against the code in this repository.
   waits and retries every 20 seconds.
 * **The WebSocket server accepts messages up to `WEB_SOCKET_MAX_MESSAGE_SIZE` bytes** (default 1 MB). A larger message
   closes that browser's connection with code 1009; other connections and the server carry on. A screen that sends large
-  data through `wsAmMessage` or `wsAmBinaryMessage` raises the limit in `FrameworkParams.cnf`.
+  data through `wsChannelMessage` or `wsChannelBinaryMessage` raises the limit in `FrameworkParams.cnf`.
 * **A WebSocket connection without a known session is closed** after the server sends `FORCE_REFRESH`. The session comes
   from the `PHPSESSID` cookie of the WebSocket request, so the cookie must reach port 1001 through the proxy.
+* **The session cookie is HttpOnly**, so page scripts cannot read `PHPSESSID`. It is SameSite=Lax unless php.ini sets
+  `session.cookie_samesite`.
 * **Classes under `APPLICATION_PACKAGES` must be in `bin/`.** A class that is missing there does not load, even when it
   is on the classpath. Entries of `APPLICATION_PACKAGES` are not trimmed.
 * **`SecurityContext.login(user, domain)` and `login(user, options)` without `LoginPassword` do not check a password.**
@@ -245,3 +247,24 @@ checked against the code in this repository.
   the JVM does not know is replaced, so a JVM restart gives every browser a new session id (the original kept the id
   with an empty session). `restless.php` attaches no session for a cookie that is not a valid id, and `java.php` stops
   the request with a 500 when the JVM refuses the session id.
+* The WebSocket takes the session from its handshake cookie. The original read `PHPSESSID` in JavaScript and sent it
+  in every message, and the server used the id in the message, so the cookie could not be HttpOnly. Messages no longer
+  carry a session id. The session cookie is now HttpOnly and, by default, SameSite=Lax.
+* Custom messages are addressed to a template instead of an AM and a channel name. The original addressed them as
+  `<AM id>` plus a free channel name (`DEFAULT` unless given); a template now gets its channel from the
+  `<skylin_channel>` binding, which also names the row it rendered on. Replaced, with no compatibility layer:
+  * Java: `receiveMessage(J)`, `receiveMessage(J, channel)`, `receiveBinaryMessage(bytes, channel)`, `customMessage`
+    and `customBinaryMessage` became `receiveChannelMessage(J, templateId, row)`,
+    `receiveChannelBinaryMessage(bytes, templateId, row)`, `channelMessage(message, templateId[, row])` and
+    `channelBinaryMessage(bytes, templateId[, row])`.
+  * JavaScript: `registerToMessageChannel(amId, func, channel)`, `deregisterFromMessageChannel`,
+    `deregisterAllFromMessageChannel`, `wsAmMessage(amId, message, channel)`, `wsAmBinaryMessage` and
+    `messageAM(amId, message, channel)` became `registerChannel(channel, func)`, `deregisterChannel(channel)`,
+    `wsChannelMessage(channel, message)`, `wsChannelBinaryMessage(channel, bytes)` and
+    `messageChannel(channel, message)`. A channel has one handler: registering again replaces it (the original added
+    another handler each time a template's script ran again).
+  * Messages: `AM,<channel>,<message>` instead of `AM,<app id>,<AM id>,<channel name>,<message>`,
+    `custom,<channel>,<message>` instead of `custom,<AM id>,<channel name>,<message>`, binary headers to match, and
+    the `MessageAM` body `{"channel":...,"message":...}` instead of `{"amId":...,"channel":...,"message":...}`.
+  * A message without a handler is dropped silently. The original logged it, with its content, to the browser
+    console, and logged every binary message's header.

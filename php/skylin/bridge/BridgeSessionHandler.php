@@ -15,10 +15,19 @@ class BridgeSessionHandler implements SessionHandlerInterface, SessionIdInterfac
     	$this->bridgeConnection = $con;
     }
 
-    /** Uses this handler for the sessions of the request. Call it before session_start(). */
+    /**
+     * Uses this handler for the sessions of the request. Call it before session_start().
+     * The session cookie is HttpOnly. It is SameSite=Lax unless php.ini sets session.cookie_samesite: the WebSocket
+     * server knows a browser only by this cookie, so with SameSite=None another site's page could connect as the user.
+     */
     static function install($con)
     {
     	ini_set('session.use_strict_mode', '1');
+    	ini_set('session.cookie_httponly', '1');
+    	if ((string)ini_get('session.cookie_samesite') === '')
+    	{
+    		ini_set('session.cookie_samesite', 'Lax');
+    	}
     	session_set_save_handler(new BridgeSessionHandler($con), true);
     }
 

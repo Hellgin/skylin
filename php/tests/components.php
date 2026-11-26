@@ -2,7 +2,7 @@
 /*
  * Checks the component features that need no backend: $this->name finding a component before the AM, setRendered,
  * TabStrip tabs that are not rendered, FileArea's markup and after-upload handler, escaping in ChoiceLov and the
- * SearchLov popup, finalInit running after the screen file, and the setters that return the component for chaining. Java objects are stand-ins, so no dev stack is needed.
+ * SearchLov popup, a Template's <skylin_channel> binding, finalInit running after the screen file, and the setters that return the component for chaining. Java objects are stand-ins, so no dev stack is needed.
  *
  *   php php/tests/components.php
  *
@@ -30,14 +30,25 @@ require __DIR__.'/../skylin/Table.php';
 require __DIR__.'/../skylin/FileArea.php';
 require __DIR__.'/../skylin/ChoiceLov.php';
 require __DIR__.'/../skylin/SearchLov.php';
+require __DIR__.'/../skylin/Template.php';
 
 /** Stands in for a Java AM: a property is a view of that name, and finalInit is recorded. */
 class StubAM
 {
 	public $finalInits = 0;
+	public $channels = array();
 	function __get($name)
 	{
 		return 'view '.$name;
+	}
+	function _getJavaObjectId()
+	{
+		return 57;
+	}
+	function channel($templateId, $row)
+	{
+		$this->channels[] = array($templateId, $row);
+		return 'channel-of-'.$templateId;
 	}
 	function finalInit()
 	{
@@ -340,6 +351,49 @@ $html = $search->renderPopup();
 check('SearchLov popup: row values are escaped', strpos($html, '>'.$evilEscaped.'</div>') !== false && strpos($html, '<script>') === false);
 check('SearchLov popup: column and filter labels are escaped', substr_count($html, '&lt;i&gt;City&lt;/i&gt;') == 2 && strpos($html, '<i>') === false);
 check('SearchLov popup: the other rows are drawn as they are', strpos($html, '>Cape Town</div>') !== false);
+
+// ---- Template: <skylin_channel> asks the AM for the channel only when the template uses it
+/** A row with a link id: a Java row, or a NullViewRow (null). */
+class StubLinkedRow
+{
+	private $linkId;
+	function __construct($linkId) { $this->linkId = $linkId; }
+	function getLinkId() { return $this->linkId; }
+}
+
+function newTemplate($app, $html, $id = null)
+{
+	$t = new Template();
+	setPrivate($t, 'Template', 'html', $html);
+	if ($id !== null) $t->setId($id);
+	$t->setContextParam('application', $app);
+	return $t;
+}
+
+$plain = newTemplate($app, '<div id="<skylin_comId>"><skylin_amId></div>', 'plain');
+check('Template: without <skylin_channel> the AM is not asked', $plain->render() === '<div id="x1xplainx0">57</div>' && $am->channels === array());
+
+$chat = newTemplate($app, "registerChannel('<skylin_channel>',f);wsChannelMessage('<skylin_channel>',m);", 'chat');
+check('Template: <skylin_channel> is the AM\'s channel, wherever it appears', $chat->render() === "registerChannel('channel-of-chat',f);wsChannelMessage('channel-of-chat',m);");
+check('Template: asked once per render, with the id and no row', $am->channels === array(array('chat', null)));
+
+$am->channels = array();
+$onRow = new StubLinkedRow('3x1x2');
+$card = newTemplate($app, '<skylin_channel>', 'card');
+$card->setContextParam('row', $onRow);
+$card->render();
+check('Template: on a row, the row is passed', $am->channels === array(array('card', $onRow)));
+
+$am->channels = array();
+$card->setContextParam('row', new StubLinkedRow(null));
+$card->render();
+check('Template: a row without a link id (NullViewRow) counts as no row', $am->channels === array(array('card', null)));
+
+$am->channels = array();
+$numbered = newTemplate($app, '<skylin_channel>');
+setPrivate($numbered, 'Component', 'id', 5);
+$numbered->render();
+check('Template: a numbered template passes its number as a string', $am->channels === array(array('5', null)));
 
 // ---- finalInit runs once for every AM, after the screen file
 $root = sys_get_temp_dir().DIRECTORY_SEPARATOR.'skylin-components-'.getmypid();

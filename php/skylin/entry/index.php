@@ -153,7 +153,7 @@
 		<link rel="stylesheet" href="skylin/dependencies/pickaday/pikaday.css">
 	    <script src="skylin/dependencies/pickaday/moment.min.js"></script>
         <script src="skylin/dependencies/pickaday/pikaday.js"></script>
-        <script type="text/javascript" src="skylin/skylin-precontent.js?v=5" charset="UTF-8"></script>
+        <script type="text/javascript" src="skylin/skylin-precontent.js?v=7" charset="UTF-8"></script>
         <?php echo $extraJS; ?>
 	</head>
 	<body style="overscroll-behavior: contain">

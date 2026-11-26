@@ -33,7 +33,7 @@ class SocketServerCloseTest
 			}
 			client = new QuietClient(new URI("ws://127.0.0.1:" + server.getPort() + "/SessionSocket"), id);
 			assertTrue(client.connectBlocking(5, java.util.concurrent.TimeUnit.SECONDS));
-			client.send("CONNECTED,1," + id);
+			client.send("CONNECTED,1");
 			waitUntil(5000, () -> server.sockets.size() == 1);
 			assertEquals(1, server.sockets.size());
 			assertEquals(1, session.getSessionSockets(1).size());

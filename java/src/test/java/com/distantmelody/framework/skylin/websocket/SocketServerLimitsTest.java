@@ -13,6 +13,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.java_websocket.client.WebSocketClient;
 import org.java_websocket.handshake.ServerHandshake;
@@ -20,11 +21,14 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import com.distantmelody.framework.skylin.AM;
+import com.distantmelody.framework.skylin.ViewRow;
 import com.distantmelody.framework.skylin.bridge.BridgeSession;
+import com.distantmelody.library.json.J;
 
 /**
- * The browser socket refuses messages over the size limit, survives a frame header that claims 2 GB, and keeps only
- * browsers with a session this JVM holds.
+ * The browser socket refuses messages over the size limit, survives a frame header that claims 2 GB, keeps only
+ * browsers with a session this JVM holds, and takes that session from the handshake cookie.
  */
 class SocketServerLimitsTest
 {
@@ -89,11 +93,111 @@ class SocketServerLimitsTest
 	}
 
 	@Test
+	void theSessionComesFromTheCookieNotFromTheMessage() throws Exception
+	{
+		String other = "othersession0123456789abcdef0123";
+		BridgeSession otherSession = new BridgeSession(other, null);
+		BridgeSession.sessions.put(other, otherSession);
+		try
+		{
+			Client naming = new Client("PHPSESSID=" + ID);
+			assertTrue(naming.connectBlocking(5, TimeUnit.SECONDS));
+			naming.send("CONNECTED,7," + other);
+			Client plain = new Client("PHPSESSID=" + ID);
+			assertTrue(plain.connectBlocking(5, TimeUnit.SECONDS));
+			plain.send("CONNECTED,8");
+
+			BridgeSession own = BridgeSession.sessions.get(ID);
+			long deadline = System.currentTimeMillis() + 5000;
+			while ((own.getSessionSockets(7).isEmpty() || own.getSessionSockets(8).isEmpty())
+				&& System.currentTimeMillis() < deadline)
+			{
+				Thread.sleep(20);
+			}
+			assertEquals(1, own.getSessionSockets(7).size(), "a message that still names a session joins the cookie's");
+			assertEquals(1, own.getSessionSockets(8).size());
+			assertTrue(otherSession.getSessionSockets(7).isEmpty());
+			naming.closeBlocking();
+			plain.closeBlocking();
+		}
+		finally
+		{
+			BridgeSession.sessions.remove(other);
+		}
+	}
+
+	@Test
+	void channelMessagesReachTheTemplatesAm() throws Exception
+	{
+		BridgeSession own = BridgeSession.sessions.get(ID);
+		String amId = own.instantiateByName(RecordingAM.class.getName());
+		RecordingAM am = (RecordingAM) own.getObject(Integer.parseInt(amId));
+		am.setObjectId(Integer.parseInt(amId));
+
+		Client client = new Client("PHPSESSID=" + ID);
+		assertTrue(client.connectBlocking(5, TimeUnit.SECONDS));
+		client.send("AM," + am.channel("bad", null) + ",{not json");
+		client.send("AM,999xgame,{}");
+		assertTrue(client.closed.await(5, TimeUnit.SECONDS), "an AM the session does not have refreshes the page");
+		assertEquals("FORCE_REFRESH", client.lastText);
+
+		client = new Client("PHPSESSID=" + ID);
+		assertTrue(client.connectBlocking(5, TimeUnit.SECONDS));
+		client.send("AM,1xgame");
+		client.send("AM," + am.channel("game", null) + ",{\"x\":1,\"y\":2}");
+		byte[] header = ("AM," + am.channel("board", null)).getBytes(StandardCharsets.UTF_8);
+		ByteBuffer binary = ByteBuffer.allocate(1 + header.length + 2);
+		binary.put((byte) header.length).put(header).put((byte) 9).put((byte) 8).flip();
+		client.send(binary);
+		client.send(ByteBuffer.wrap(new byte[] {(byte) 200, 1, 2}));
+
+		assertTrue(am.received.await(5, TimeUnit.SECONDS));
+		assertEquals("game", am.templateId);
+		assertEquals(1, am.message.getInt("x"));
+		assertEquals(2, am.message.getInt("y"));
+		assertEquals("board", am.binaryTemplateId);
+		assertEquals("9,8", am.binary[0] + "," + am.binary[1]);
+		assertEquals(2, am.count.get(), "the message that is not JSON was dropped");
+		assertTrue(connectsAndStaysOpen(), "a malformed message does not close the connection");
+		client.closeBlocking();
+	}
+
+	public static class RecordingAM extends AM
+	{
+		final CountDownLatch received = new CountDownLatch(2);
+		final AtomicInteger count = new AtomicInteger();
+		volatile String templateId;
+		volatile J message;
+		volatile String binaryTemplateId;
+		volatile byte[] binary;
+
+		@Override
+		public byte[] receiveChannelMessage(J in, String templateId, ViewRow row)
+		{
+			this.message = in;
+			this.templateId = templateId;
+			count.incrementAndGet();
+			received.countDown();
+			return null;
+		}
+
+		@Override
+		public byte[] receiveChannelBinaryMessage(byte[] message, String templateId, ViewRow row)
+		{
+			this.binary = message;
+			this.binaryTemplateId = templateId;
+			count.incrementAndGet();
+			received.countDown();
+			return null;
+		}
+	}
+
+	@Test
 	void aMessageOverTheLimitClosesOnlyThatConnection() throws Exception
 	{
 		Client big = new Client("PHPSESSID=" + ID);
 		assertTrue(big.connectBlocking(5, TimeUnit.SECONDS));
-		big.send("PING,1," + ID + "," + "x".repeat(LIMIT));
+		big.send("PING,1," + "x".repeat(LIMIT));
 		assertTrue(big.closed.await(5, TimeUnit.SECONDS));
 		assertEquals(1009, big.closeCode);
 

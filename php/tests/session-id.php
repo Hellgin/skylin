@@ -90,6 +90,17 @@ check('create_sid makes 32 hex digits', count(array_filter($ids, function($s) { 
 check('which are valid ids', count(array_filter($ids, array('BridgeSessionHandler', 'isValidId'))) === 100);
 check('and all different', count(array_unique($ids)) === 100);
 
+// ---- the cookie install() asks for
+ini_set('session.cookie_httponly', '0');
+ini_set('session.cookie_samesite', '');
+BridgeSessionHandler::install(new StubConnection());
+check('install makes the session cookie HttpOnly', ini_get('session.cookie_httponly') === '1');
+check('and SameSite=Lax when php.ini says nothing', ini_get('session.cookie_samesite') === 'Lax');
+check('and turns on strict mode', ini_get('session.use_strict_mode') === '1');
+ini_set('session.cookie_samesite', 'Strict');
+BridgeSessionHandler::install(new StubConnection());
+check('a SameSite that php.ini sets is kept', ini_get('session.cookie_samesite') === 'Strict');
+
 // ---- session_start with a cookie id that is not valid, as InitRequest does it
 $con = new StubConnection();
 $con->answers = array('b,2' => '', 'b,7' => 'false');

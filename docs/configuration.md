@@ -179,6 +179,9 @@ The bridge socket path does not depend on the working directory; see
 * Skylin turns on `session.use_strict_mode` itself and makes its own 32-hex-digit session ids, so `session.sid_length`
   and `session.sid_bits_per_character` do not apply. A session id from a cookie is used only when it is 22 to 128
   letters, digits and `-` and the JVM knows the session.
+* Skylin makes the session cookie HttpOnly, and SameSite=Lax unless `session.cookie_samesite` is set. Do not set it
+  to `None` (see [architecture.md](architecture.md#websocket)). Set `session.cookie_secure = On` where the pages are
+  served over HTTPS.
 * `default_charset = "UTF-8"`.
 * Skylin sets `error_reporting(E_ERROR | E_PARSE)` and `display_errors=0` in `InitRequest.php` for its own requests,
   because the frontend relies on undefined keys and properties reading as null. Keep `log_errors` on with an

@@ -19,7 +19,7 @@ import org.java_websocket.server.WebSocketServer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.distantmelody.framework.skylin.AM;
+import com.distantmelody.framework.skylin.TemplateChannel;
 import com.distantmelody.framework.skylin.bridge.BridgeSession;
 import com.distantmelody.framework.skylin.util.Util;
 import com.distantmelody.library.json.J;
@@ -62,14 +62,26 @@ public class SocketServer extends WebSocketServer{
 	/**
 	 * Only a browser with a session this JVM holds may stay connected. Any other is told to reload, as before, and
 	 * closed before it can send anything; after a JVM restart that reload gives the page a new session.
+	 * <p>
+	 * The connection keeps the session of its handshake cookie, so the cookie can be HttpOnly and messages do not name
+	 * a session. Nothing else stops another site from opening a connection with the user's cookie, so the cookie must
+	 * not be SameSite=None.
 	 */
     public void onOpen(WebSocket session, ClientHandshake handshake) {
 		String id = sessionCookie(handshake.getFieldValue("Cookie"));
 		if (id == null || !BridgeSession.sessions.containsKey(id))
 		{
 			forceRefresh(session);
+			return;
 		}
+		session.setAttachment(id);
     }
+
+	/** The bridge session of the connection's handshake cookie, or null when there is none or it has ended. */
+	private static BridgeSession sessionOf(WebSocket websocketSession) {
+		String id = websocketSession.getAttachment();
+		return id == null ? null : BridgeSession.sessions.get(id);
+	}
 
 	/** The PHPSESSID value of a Cookie header, or null. */
 	static String sessionCookie(String header) {
@@ -87,6 +99,11 @@ public class SocketServer extends WebSocketServer{
     public void onMessage(WebSocket websocketSession,ByteBuffer messageBuffer) {
     	//System.out.println("received bytes: " + new String(message.array()));
     	byte[] data = messageBuffer.array();
+    	if (data.length == 0 || (data[0] & 0xFF) > data.length - 1)
+    	{
+    		LOG.warn("Dropped a binary message shorter than its header");
+    		return;
+    	}
     	int headerLength = data[0] & 0xFF;//a length of 128 and more is a negative byte
     	byte[] header = new byte[headerLength];
     	byte[] message = new byte[data.length-headerLength-1];
@@ -100,58 +117,72 @@ public class SocketServer extends WebSocketServer{
     		System.out.println("message " +i+": " + message[i]);
     	}*/
     	
-    	String[] m = new String(header, StandardCharsets.UTF_8).split(",", 5);
+    	String[] m = new String(header, StandardCharsets.UTF_8).split(",", 2);
     	
-   		BridgeSession bs = BridgeSession.sessions.get(m[2]);
+   		BridgeSession bs = sessionOf(websocketSession);
 		if (bs == null)
 		{
-			//System.out.println("Bridge Session not found. forcing client refresh");
 			forceRefresh(websocketSession);
 			return;
 		}
     	
-		if ("AM".equals(m[0]))
+		if ("AM".equals(m[0]) && m.length == 2)
 		{
-			AM am = (AM) bs.getObject(Integer.parseInt(m[3]));
-			if (am == null)
+			TemplateChannel.Target target = target(websocketSession, bs, m[1]);
+			if (target != null)
 			{
-				LOG.warn("session " + m[2] + " sent message to non existing am. telling client to refresh now.");
-				forceRefresh(websocketSession);
-				return;
-			}
-			byte[] response = am.receiveBinaryMessage(message,m[4]);
-			if (response != null)
-			{
-				//consider being able to send response back like this. Would likely never be needed.
+				target.am().receiveChannelBinaryMessage(message, target.templateId(), target.row());
 			}
 		}
     }
 
+	/** The template a message's channel names; null when there is none, after telling the page to refresh if its AM is gone. */
+	private TemplateChannel.Target target(WebSocket websocketSession, BridgeSession bs, String channel) {
+		try {
+			return TemplateChannel.resolve(bs, channel);
+		}
+		catch (TemplateChannel.UnresolvableChannel e) {
+			if (e.failure == TemplateChannel.Failure.UNKNOWN_AM) {
+				LOG.warn("A browser sent a message to an AM its session does not have; telling it to refresh");
+				forceRefresh(websocketSession);
+			}
+			return null;
+		}
+	}
+
     public void onMessage(WebSocket websocketSession,String message) {
-    		String[] m = message.split(",", 6);
+    		String[] m = message.split(",", 3);
     		
-       		BridgeSession bs = BridgeSession.sessions.get(m[2]);
+       		BridgeSession bs = sessionOf(websocketSession);
     		if (bs == null)
     		{
-    			//System.out.println("Bridge Session not found. forcing client refresh");
     			forceRefresh(websocketSession);
     			return;
     		}
     		
     		if ("AM".equals(m[0]))
     		{
-    			AM am = (AM) bs.getObject(Integer.parseInt(m[3]));
-    			if (am == null)
+    			if (m.length != 3)
     			{
-    				LOG.warn("session " + m[2] + " sent message to non existing am. telling client to refresh now.");
-    				forceRefresh(websocketSession);
+    				LOG.warn("Dropped an AM message without a channel and a message");
     				return;
     			}
-    			byte[] response = am.receiveMessage(J.fromString(m[5]),m[4]);
-    			if (response != null)
+    			TemplateChannel.Target target = target(websocketSession, bs, m[1]);
+    			if (target == null)
     			{
-    				//consider being able to send response back like this. Would likely never be needed.
+    				return;
     			}
+    			J in;
+    			try
+    			{
+    				in = J.fromString(m[2]);
+    			}
+    			catch (RuntimeException | StackOverflowError e)
+    			{
+    				LOG.warn("Dropped a message for template {} that is not JSON ({})", target.templateId(), e.getClass().getSimpleName());
+    				return;
+    			}
+    			target.am().receiveChannelMessage(in, target.templateId(), target.row());
     		}
     		else if ("CONNECTED".equals(m[0]))
     		{

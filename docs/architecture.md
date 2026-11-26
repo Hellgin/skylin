@@ -226,8 +226,9 @@ function registered with `register()`, then forwards to the first AM.
 ## Sessions
 
 * `BridgeSessionHandler` (PHP, `skylin/bridge/BridgeSessionHandler.php`) is PHP's session handler. It sends session
-  open, read, write, close, destroy and gc to the JVM (bridge command `b`). `BridgeSessionHandler::install()` sets it and
-  turns on `session.use_strict_mode`.
+  open, read, write, close, destroy and gc to the JVM (bridge command `b`). `BridgeSessionHandler::install()` sets it,
+  turns on `session.use_strict_mode`, makes the session cookie HttpOnly, and makes it SameSite=Lax unless php.ini sets
+  `session.cookie_samesite`.
 * The JVM writes the serialized session to `sess1_<session id>` in PHP's `session.save_path`. The JVM user therefore
   needs write access to that directory.
 * A session id is 22 to 128 letters, digits and `-`. The id comes from the browser's cookie and becomes part of that
@@ -254,10 +255,24 @@ function registered with `register()`, then forwards to the first AM.
   `SessionSocket`. For a page at `/` that is `/SessionSocket`, which the web server proxies to
   `ws://127.0.0.1:1001/SessionSocket`. With `WEB_SOCKET_ALT_PORT:true` the browser connects to `ws://<host>:1001`
   directly.
-* Uses: server push from an AM (`AM.eval` outside a request, `customMessage`), a ping that keeps the session active, and
-  `FORCE_REFRESH`, which reloads the page. Screens that do not push work without it.
-* A connection whose `PHPSESSID` cookie names no session in this JVM is sent `FORCE_REFRESH` and closed. After a JVM
-  restart that reloads the page, which creates the session again and reconnects.
+* Uses: server push from an AM (`AM.eval` outside a request, `channelMessage`), messages between a template and its
+  AM, a ping that keeps the session active, and `FORCE_REFRESH`, which reloads the page. Screens that do not push work
+  without it.
+* A connection belongs to the session of the `PHPSESSID` cookie its handshake carries, so the browser's messages name
+  no session: `CONNECTED,<app id>`, `PING,<app id>`, `AM,<channel>,<message>` (`wsChannelMessage`), and for
+  `wsChannelBinaryMessage` one byte with the header's length, the header `AM,<channel>`, then the bytes. The AM sends
+  `custom,<channel>,<message>`, or binary with the header `<channel>`.
+* `<channel>` is a template's channel (`TemplateChannel`, the template's `<skylin_channel>` binding):
+  `<AM id>x<template id>`, or on a row `<AM id>x<template id>x<row's AM id>x<root view index>x<row link id>`. The AM
+  ids are the AMs' object ids, and the root view index is the position of the row's root view among its AM's views.
+  The server resolves it to `AM.receiveChannelMessage(message, templateId, row)` of the first AM. It drops a channel
+  that is malformed, names an object that is not an AM of the session, or a row AM of another top application (logged
+  as a warning, without the content), and a row that is gone (debug). An AM the session does not have gets
+  `FORCE_REFRESH`. These messages run outside the session lock.
+* A connection whose cookie names no session in this JVM is sent `FORCE_REFRESH` and closed. After a JVM restart that
+  reloads the page, which creates the session again and reconnects.
+* The cookie alone identifies the browser, and the server does not check `Origin`. Keep the session cookie SameSite
+  Lax or Strict: with `None`, another site's page could open the WebSocket as the user.
 * A message over `WEB_SOCKET_MAX_MESSAGE_SIZE` (default 1 MB) closes that connection with code 1009. The server checks
   the length a frame declares before it allocates the buffer, so a frame header that claims gigabytes costs nothing.
 * The server does not limit connections per address. Behind the proxy every connection comes from `127.0.0.1`, so limit
@@ -277,10 +292,11 @@ function registered with `register()`, then forwards to the first AM.
   null).
 * Built-in services (`com.distantmelody.framework.skylin.services.builtin`): `SessionBlob` (downloads, used by
   `SkylinBlob.getUrl()`; a link is single-use and expires after 10 seconds), `FileUpload` and `MessageAM`.
-* `MessageAM` (`messageAM(amId, message, channel)` in the page's JavaScript) passes the message to `receiveMessage` of
-  an AM in the caller's own session, through `restless.php`. A caller outside the browser sends the session as the
-  `PHPSESSID` cookie. A body that is not a message, or an id that is not an AM of that session, is logged and gets an
-  empty answer.
+* `MessageAM` (`messageChannel(channel, message)` in the page's JavaScript, the body
+  `{"channel":"<channel>","message":<json>}`) passes the message to `receiveChannelMessage` of the template's AM in the
+  caller's own session, through `restless.php`, and answers with what it returns. It resolves the channel as the
+  WebSocket does. A caller outside the browser sends the session as the `PHPSESSID` cookie. A body that is not a
+  message, or a channel that does not resolve, is logged and gets an empty answer.
 * `FileUpload` (`restless.php`, the file as the body, the `Authorization` header
   `<view id>_<token>_<file name>` with the file name URL-encoded) adds a row with the file name and the file to a view
   of the caller's own session. The view only takes uploads that a `FileArea` opened: each time the area renders,

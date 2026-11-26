@@ -860,7 +860,8 @@ $lines->add(new TextField('productName'));
   kept in the session with the component.
 * `<skylin_name>` is a binding point (case sensitive). `setCom(name, component)` renders a component there and returns
   it. `setString(name, text)` and `setStringE(name, code)` insert text. A template has no `add()`.
-* `<skylin_comId>` (unique per template instance, row and application) and `<skylin_amId>` are built in. The template
+* `<skylin_comId>` (unique per template instance, row and application), `<skylin_amId>` and `<skylin_channel>` (see
+  below) are built in. The template
   adds no id of its own: put `id="<skylin_comId>"` on the root element.
 * Binding points are replaced with `str_replace` and nothing is escaped. Show data through components (a `TextField`
   escapes it); keep the string bindings for state the browser needs before any click, such as an initial class.
@@ -879,6 +880,41 @@ $lines->add(new TextField('productName'));
   (`Button::click` ignores a button that is not rendered).
 * `setEventE('name', code)` plus the JavaScript call `templateEvent('name', '<skylin_comId>', data)` sends an event to
   the server. In the handler, `$this->c('eventData')` is the data.
+* For messages that bypass the request cycle (server push, live updates, games), use the template's channel. The
+  optional `<skylin_channel>` binding is everything the page needs; a template has one channel, and each row's copy of
+  a template has its own:
+
+  ```html
+  <script>
+  registerChannel('<skylin_channel>', function (message) { /* a string from channelMessage */ });
+  wsChannelMessage('<skylin_channel>', JSON.stringify({type: 'move', x: 1}));
+  </script>
+  ```
+
+  ```java
+  @Override
+  public byte[] receiveChannelMessage(J message, String templateId, ViewRow row)
+  {
+      // templateId: the template's setId, or its number; row: the row it rendered on, or null
+      channelMessage(J.fromString("{\"ok\":true}"), templateId, row);
+      return null;
+  }
+  ```
+
+  * Give the template an id (`setId('board')`) when the AM has to tell templates apart. Without one it has the number
+    it got when it first rendered, which is the same each time the application is created. With a channel the id may only hold letters other than `x`, digits, `_`
+    and `-` (up to 64), and the template's application needs an AM.
+  * `receiveChannelMessage` and `receiveChannelBinaryMessage` run on the WebSocket thread, outside the session lock and
+    outside any request, so they must not assume a request is running. `messageChannel(channel, message)` sends
+    through `restless.php` instead, where `receiveChannelMessage`'s return value is the answer.
+  * Send from the template's AM: `channelMessage(message, templateId[, row])` and `channelBinaryMessage` go over the
+    WebSocket only and are dropped when the page is not connected. A screen that must not lose messages confirms
+    and resends them itself.
+  * `registerChannel` replaces the channel's handler, so a template whose script runs again on every render does not
+    pile up handlers. `deregisterChannel(channel)` removes it. A message without a handler is dropped.
+  * A row's channel is only valid while the row exists: after its view is queried again, messages from the old page
+    are dropped until the template renders again. A template on a row of a view outside its AM's views (one created
+    after the AM initialized, without a parent row) cannot have a channel.
 * For browser-side behaviour, keep its state in CSS classes, render the starting state on the server, and use one
   delegated listener on the root element, so several copies of the template (several tabs, rows) never interfere.
 

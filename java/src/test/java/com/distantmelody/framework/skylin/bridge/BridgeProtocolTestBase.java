@@ -29,6 +29,7 @@ import com.distantmelody.framework.skylin.AM;
 import com.distantmelody.framework.skylin.SkylinBlob;
 import com.distantmelody.framework.skylin.SkylinClassLoader;
 import com.distantmelody.framework.skylin.View;
+import com.distantmelody.framework.skylin.ViewRow;
 import com.distantmelody.framework.skylin.server.Server;
 import com.distantmelody.library.json.J;
 import com.distantmelody.framework.skylin.websocket.SessionSocket;
@@ -439,9 +440,9 @@ abstract class BridgeProtocolTestBase
 	static class RecordingAM extends AM
 	{
 		@Override
-		public byte[] receiveMessage(J in, String channel)
+		public byte[] receiveChannelMessage(J in, String templateId, ViewRow row)
 		{
-			return ("got " + channel).getBytes(StandardCharsets.UTF_8);
+			return ("got " + templateId + " " + in).getBytes(StandardCharsets.UTF_8);
 		}
 	}
 
@@ -459,18 +460,20 @@ abstract class BridgeProtocolTestBase
 		BridgeSession other = new BridgeSession("other-session", null);
 		BridgeSession.sessions.put("other-session", other);
 		other.objects.put(5, new RecordingAM());
-		BridgeSession.sessions.get(SESSION).objects.put(2, new RecordingAM());
+		RecordingAM own = new RecordingAM();
+		own.setObjectId(2);
+		BridgeSession.sessions.get(SESSION).objects.put(2, own);
 		try
 		{
-			assertTrue(messageAM("{\"amId\":2,\"channel\":\"c\",\"message\":{\"a\":1}}").endsWith("got c"));
-			assertTrue(messageAM("{\"amId\":2,\"message\":{}}").endsWith("got DEFAULT"));
-			assertFalse(messageAM("{\"sessionId\":\"other-session\",\"amId\":5,\"message\":{}}").contains("got"), "sessionId in the body is ignored");
-			assertFalse(messageAM("{\"amId\":1,\"message\":{}}").contains("got"), "an object that is not an AM");
-			assertFalse(messageAM("{\"amId\":999,\"message\":{}}").contains("got"), "no such object");
-			assertFalse(messageAM("{\"amId\":\"x\",\"message\":{}}").contains("got"), "amId is not a number");
-			assertFalse(messageAM("{\"message\":{}}").contains("got"), "no amId");
+			assertTrue(messageAM("{\"channel\":\"2xchat\",\"message\":{\"a\":1}}").endsWith("got chat {\"a\":1}"));
+			assertFalse(messageAM("{\"sessionId\":\"other-session\",\"channel\":\"5xchat\",\"message\":{}}").contains("got"), "sessionId in the body is ignored");
+			assertFalse(messageAM("{\"channel\":\"1xchat\",\"message\":{}}").contains("got"), "an object that is not an AM");
+			assertFalse(messageAM("{\"channel\":\"999xchat\",\"message\":{}}").contains("got"), "no such object");
+			assertFalse(messageAM("{\"channel\":\"2xa,b\",\"message\":{}}").contains("got"), "not a template id");
+			assertFalse(messageAM("{\"channel\":2,\"message\":{}}").contains("got"), "the channel is not a string");
+			assertFalse(messageAM("{\"amId\":2,\"message\":{}}").contains("got"), "no channel");
 			assertFalse(messageAM("{").contains("got"), "not JSON");
-			messageAM("{\"amId\":2,\"message\":" + "[".repeat(100_000) + "]".repeat(100_000) + "}");
+			messageAM("{\"channel\":\"2xchat\",\"message\":" + "[".repeat(100_000) + "]".repeat(100_000) + "}");
 			assertEquals(MIXED, invoke("echo", MIXED), "the connection still works");
 		}
 		finally

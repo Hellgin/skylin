@@ -535,30 +535,70 @@ public class AM implements SkylinBridgeVirtualMethods
 		session.resetWebSocketUnavailableCount(topFrontEndApplicationId);
 	}
 
-	public final byte[] receiveMessage(J in) {
-		return receiveMessage(in,"DEFAULT");
-	}
-	
-	public byte[] receiveMessage(J in, String channel) {
+	/**
+	 * A message from a template's page ({@code wsChannelMessage} or {@code messageChannel}). {@code templateId} is the
+	 * template's id ({@code setId}, or the number it got when it was first rendered) and {@code row} the row it
+	 * rendered on, {@code null} when it had none. Runs outside the session lock. What it returns goes back only to
+	 * {@code messageChannel}.
+	 */
+	public byte[] receiveChannelMessage(J message, String templateId, ViewRow row) {
 		return null;
 	}
 	
-	public byte[] receiveBinaryMessage(byte[] message, String channel) {
+	/** A binary message from a template's page ({@code wsChannelBinaryMessage}); see {@link #receiveChannelMessage}. */
+	public byte[] receiveChannelBinaryMessage(byte[] message, String templateId, ViewRow row) {
 		return null;
 	}
 	
-	public void customMessage(J message)
+	/**
+	 * The channel of a template of this AM, rendered on {@code row} ({@code null} when it has none): what its
+	 * {@code <skylin_channel>} binding gives the page. See {@link TemplateChannel}.
+	 */
+	public String channel(String templateId, ViewRow row)
 	{
-		customMessage(message.toString(),"DEFAULT");
+		return TemplateChannel.build(this, templateId, row);
 	}
 	
-	public void customMessage(J message,String channel)
+	public void channelMessage(J message, String templateId)
 	{
-		customMessage(message.toString(),channel);
+		channelMessage(message.toString(), templateId, null);
 	}
-	public void customMessage(String message)
+	
+	public void channelMessage(J message, String templateId, ViewRow row)
 	{
-		customMessage(message,"DEFAULT");
+		channelMessage(message.toString(), templateId, row);
+	}
+	
+	public void channelMessage(String message, String templateId)
+	{
+		channelMessage(message, templateId, null);
+	}
+	
+	/**
+	 * Sends a message to the handler the page of this AM's template registered with {@code registerChannel}. It goes
+	 * over the WebSocket only, and is dropped when the page is not connected.
+	 */
+	public void channelMessage(String message, String templateId, ViewRow row)
+	{
+		String m = "custom,"+channel(templateId, row)+","+message;
+		m = "1,"+m.length()+"-"+m;//the browser counts UTF-16 code units, which is what String.length() counts
+		session.sendWebSocketText(topFrontEndApplicationId, m);
+	}
+	
+	public void channelBinaryMessage(byte[] message, String templateId)
+	{
+		channelBinaryMessage(message, templateId, null);
+	}
+	
+	public void channelBinaryMessage(byte[] message, String templateId, ViewRow row)
+	{
+		byte[] header = channel(templateId, row).getBytes(StandardCharsets.UTF_8);
+		byte[] m = new byte[1 + header.length + message.length]; 
+		m[0] = (byte) header.length;
+		System.arraycopy(header, 0, m, 1, header.length);
+		System.arraycopy(message, 0, m, 1+header.length, message.length);
+		
+		session.sendWebSocketBinary(topFrontEndApplicationId, m);
 	}
 	
 	public void setWsCookie(String name,String value,long date)
@@ -566,25 +606,6 @@ public class AM implements SkylinBridgeVirtualMethods
 		String message = "setCookie,"+name+";"+value+";"+date;
 		message = "1,"+message.length()+"-"+message;//the browser counts UTF-16 code units, which is what String.length() counts
 		session.sendWebSocketText(topFrontEndApplicationId, message);
-	}
-
-	public void customMessage(String message,String channel)
-	{
-		String m = "custom,"+objectId+","+channel+","+message;
-		m = "1,"+m.length()+"-"+m;//the browser counts UTF-16 code units, which is what String.length() counts
-		//session.getSessionSocket().sendText(m);
-		session.sendWebSocketText(topFrontEndApplicationId, m);
-	}
-	
-	public void customBinaryMessage(byte[] message,String channel)
-	{
-		byte[] header = (objectId+","+channel).getBytes(StandardCharsets.UTF_8);
-		byte[] m = new byte[1 + header.length + message.length]; 
-		m[0] = (byte) header.length;
-		System.arraycopy(header, 0, m, 1, header.length);
-		System.arraycopy(message, 0, m, 1+header.length, message.length);
-		
-		session.sendWebSocketBinary(topFrontEndApplicationId, m);
 	}
 
 	public void setObjectId(int id)

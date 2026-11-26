@@ -1,30 +1,10 @@
 function binaryMessageReceived(message)
 {
-	var header = message.slice(1,message[0]+1);
-	var headerString = new TextDecoder("utf-8").decode(header);
-	
-	var data = message.slice(message[0]+1,message.length);
-	
-	console.log(headerString);
-	
-	
-	var s = splitWithTail(headerString,',',2);
-	var am = customMessageHandlers[s[0]];
-	if (am == null)
+	var channel = new TextDecoder("utf-8").decode(message.slice(1,message[0]+1));
+	var handler = channelHandlers[channel];
+	if (handler)
 	{
-		console.log("no listeners available for any channels for custom messages from AM "+s[0]+". BINARY MESSAGE, LENGTH: " + data.length);
-		return;
-	}
-	var methods = am[s[1]];
-	if (methods == null)
-	{
-		console.log("no listener available for channel "+s[1]+" for custom messages from AM "+s[0]+". BINARY MESSAGE, LENGTH: " + data.length);
-		return;
-	}
-	//methods.forEach(function(m){m(s[2]);}); slower aparently
-		
-	for (var i = 0, len = methods.length; i < len; i++) {
-		methods[i](data);
+		handler(message.slice(message[0]+1,message.length));
 	}
 }
 
@@ -64,7 +44,7 @@ function wsConnect()
 
     		            ws.onopen = function () {
     		            	console.log("websocket connected");
-    		                ws.send("CONNECTED,"+topAppId+","+getCookie("PHPSESSID"));
+    		                ws.send("CONNECTED,"+topAppId);
     		            };
     		            ws.onmessage = function (event) {
     		            	if (event.data instanceof Blob)
@@ -83,7 +63,7 @@ function wsConnect()
     		            	}
     		            	else if (event.data == "ping")
     		            	{
-    		            		ws.send("PING,"+topAppId+","+getCookie("PHPSESSID"));
+    		            		ws.send("PING,"+topAppId);
     		            	}
     		            	else if(event.data == "FORCE_REFRESH")
     		            	{
@@ -103,24 +83,16 @@ function wsConnect()
 
 }
 
-function wsAmMessage(amId,message,channel)
+// A template's channel comes from its <skylin_channel> binding.
+function wsChannelMessage(channel,message)
 {
-	var c;
-	if (typeof channel === 'undefined')
-	{
-		c = 'DEFAULT';
-	}	
-	else 
-	{
-		c = channel;
-	}
 	if (typeof ws === 'undefined')
 	{
 		return false;
 	}
 	try
 	{
-		ws.send("AM,"+topAppId+","+getCookie("PHPSESSID")+","+amId+","+c+","+message);
+		ws.send("AM,"+channel+","+message);
 	}
 	catch(err)
 	{
@@ -132,29 +104,19 @@ function wsAmMessage(amId,message,channel)
 	return true;
 }
 
-function wsAmBinaryMessage(amId,message,channel)
+function wsChannelBinaryMessage(channel,message)
 {
-	var c;
-	if (typeof channel === 'undefined')
-	{
-		c = 'DEFAULT';
-	}	
-	else 
-	{
-		c = channel;
-	}
 	if (typeof ws === 'undefined')
 	{
 		return false;
 	}
 	try
 	{
-		//ws.send("AM,"+topAppId+","+getCookie("PHPSESSID")+","+amId+","+c+","+message);
 		if (!("TextEncoder" in window)) 
 			  alert("Sorry, binary messages wont work, neccesary functions not supported in this browser");
 
 		var enc = new TextEncoder(); // always utf-8
-		var header = enc.encode("AM,"+topAppId+","+getCookie("PHPSESSID")+","+amId+","+c);
+		var header = enc.encode("AM,"+channel);
 		
 		var combined = new Uint8Array(1 + header.length + message.length);
 		combined[0] = header.length;
@@ -612,23 +574,11 @@ function processMessage(type,message)
 	}
 	else if (type == 'custom')
 	{
-		var s = splitWithTail(message,',',3);
-		var am = customMessageHandlers[s[0]];
-		if (am == null)
+		var s = splitWithTail(message,',',2);
+		var handler = channelHandlers[s[0]];
+		if (handler)
 		{
-			console.log("no listeners available for any channels for custom messages from AM "+s[0]+". MESSAGE: " + s[2]);
-			return;
-		}
-		var methods = am[s[1]];
-		if (methods == null)
-		{
-			console.log("no listener available for channel "+s[1]+" for custom messages from AM "+s[0]+". MESSAGE: " + s[2]);
-			return;
-		}
-		//methods.forEach(function(m){m(s[2]);}); slower aparently
-			
-		for (var i = 0, len = methods.length; i < len; i++) {
-  			methods[i](s[2]);
+			handler(s[1]);
 		}
 	}
 	else if (type == 'scrolltobottom')
@@ -677,94 +627,21 @@ function strEndsWith(str, suffix) {
     return str.match(suffix+"$")==suffix;
 }
 
-customMessageHandlers = {};
-function registerToMessageChannel(amId,func,channel)
+// One handler per channel: registering again, as a template's script does when it renders again, replaces it.
+var channelHandlers = Object.create(null);
+function registerChannel(channel,func)
 {
-	var c;
-	if (typeof channel === 'undefined')
-	{
-		c = 'DEFAULT';
-	}	
-	else 
-	{
-		c = channel;
-	}
-	
-	if (typeof customMessageHandlers[amId] === 'undefined')
-	{
-		customMessageHandlers[amId] = {};
-	}
-	if (typeof customMessageHandlers[amId][c] === 'undefined')
-	{
-		customMessageHandlers[amId][c] = [];
-	}
-	customMessageHandlers[amId][c].push(func);
+	channelHandlers[channel] = func;
 }
 
-function deregisterFromMessageChannel(amId,func,channel)
+function deregisterChannel(channel)
 {
-	var c;
-	if (typeof channel === 'undefined')
-	{
-		c = 'DEFAULT';
-	}	
-	else 
-	{
-		c = channel;
-	}
-	if (typeof customMessageHandlers[amId] === 'undefined')
-	{
-		return;
-	}
-	if (typeof customMessageHandlers[amId][c] === 'undefined')
-	{
-		return;
-	}
-	
-	var index = customMessageHandlers[amId][c].indexOf(func);
-	if (index > -1) 
-	{
-	    customMessageHandlers[amId][c].splice(index, 1);
-	}
+	delete channelHandlers[channel];
 }
 
-function deregisterAllFromMessageChannel(amId,channel)
+function messageChannel(channel,message)
 {
-	var c;
-	if (typeof channel === 'undefined')
-	{
-		c = 'DEFAULT';
-	}	
-	else 
-	{
-		c = channel;
-	}
-	if (typeof customMessageHandlers[amId] === 'undefined')
-	{
-		return;
-	}
-	if (typeof customMessageHandlers[amId][c] === 'undefined')
-	{
-		return;
-	}
-	
-	delete customMessageHandlers[amId][c];
-}
-
-
-function messageAM(amId,message,channel)
-{
-	var c;
-	if (typeof channel === 'undefined')
-	{
-		c = 'DEFAULT';
-	}	
-	else 
-	{
-		c = channel;
-	}
-	
-	var m = {"amId":amId,"channel":c,"message":message};
+	var m = {"channel":channel,"message":message};
 	
 	var xhr = new XMLHttpRequest();
 	xhr.open("POST", "restless.php?com.distantmelody.framework.skylin.services.builtin.MessageAM", true);

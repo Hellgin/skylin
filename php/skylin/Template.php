@@ -55,9 +55,29 @@ class Template extends Component
 	    return $this;
 	}
 	
+	/**
+	 * What <skylin_channel> gives the page: the address of this template's custom messages (see the Java class
+	 * TemplateChannel), for registerChannel, wsChannelMessage and messageChannel.
+	 */
+	function getChannel()
+	{
+		$am = $this->getAM();
+		if (is_null($am))
+		{
+			throw new Exception('A template with <skylin_channel> needs an application with an AM');
+		}
+		$link = $this->getLinkId();
+		$row = (java_is_null($link) || (string)$link === '0') ? null : $this->r();
+		return $am->channel((string)$this->getId(), $row);
+	}
+	
 	function render()
 	{
 		$ret = $this->html;
+		if (strpos($ret,'<skylin_channel>') !== false)
+		{
+			$ret = str_replace('<skylin_channel>',$this->getChannel(),$ret);
+		}
 		
 		for ($i = 0;$i < sizeof($this->facets);$i = $i + 1)
 		{

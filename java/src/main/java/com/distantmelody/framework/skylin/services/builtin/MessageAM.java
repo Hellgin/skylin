@@ -12,13 +12,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.distantmelody.framework.skylin.AM;
+import com.distantmelody.framework.skylin.TemplateChannel;
 import com.distantmelody.framework.skylin.bridge.BridgeSession;
 import com.distantmelody.library.json.J;
 
 /**
  * {@code restless.php?com.distantmelody.framework.skylin.services.builtin.MessageAM} with the body
- * {@code {"amId":<id>,"channel":"<channel>","message":<json>}}: hands the message to {@link AM#receiveMessage} of that
- * AM in the caller's own session and answers with what it returns.
+ * {@code {"channel":"<template channel>","message":<json>}}: hands the message to {@link AM#receiveChannelMessage} of
+ * the template's AM in the caller's own session and answers with what it returns.
  */
 public class MessageAM extends HttpServlet
 {
@@ -33,13 +34,11 @@ public class MessageAM extends HttpServlet
 			return;
 		}
 
-		int amId;
 		String channel;
 		J message;
 		try
 		{
 			J in = J.fromString(new String(req.getInputStream().readAllBytes(), StandardCharsets.UTF_8));
-			amId = in.getInt("amId");
 			channel = in.getString("channel");
 			message = in.getJ("message");
 		}
@@ -49,13 +48,20 @@ public class MessageAM extends HttpServlet
 			return;
 		}
 
-		if (!(session.getObject(amId) instanceof AM am))
+		TemplateChannel.Target target;
+		try
 		{
-			LOG.warn("MessageAM: object {} of the session is not an AM", amId);
+			target = TemplateChannel.resolve(session, channel);
+		}
+		catch (TemplateChannel.UnresolvableChannel e)
+		{
+			if (e.failure == TemplateChannel.Failure.UNKNOWN_AM)
+			{
+				LOG.warn("MessageAM: the channel names an AM the session does not have");
+			}
 			return;
 		}
-		if (channel == null)channel = "DEFAULT";
-		byte[] response = am.receiveMessage(message,channel);
+		byte[] response = target.am().receiveChannelMessage(message, target.templateId(), target.row());
 		if (response != null)
 		{
 			resp.getOutputStream().write(response);
