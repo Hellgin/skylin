@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -18,6 +19,7 @@ import com.distantmelody.framework.skylin.TemplateChannel.Failure;
 import com.distantmelody.framework.skylin.TemplateChannel.Target;
 import com.distantmelody.framework.skylin.TemplateChannel.UnresolvableChannel;
 import com.distantmelody.framework.skylin.bridge.BridgeSession;
+import com.distantmelody.framework.skylin.websocket.SessionSocket;
 import com.distantmelody.library.json.J;
 
 /**
@@ -54,9 +56,9 @@ class TemplateChannelTest
 		}
 
 		@Override
-		public byte[] receiveChannelMessage(J message, int applicationId, String templateId)
+		public byte[] receiveChannelMessage(J message, String templateId)
 		{
-			return ("row " + applicationId + " " + templateId + " " + message).getBytes(StandardCharsets.UTF_8);
+			return ("row " + templateId + " " + message).getBytes(StandardCharsets.UTF_8);
 		}
 	}
 
@@ -80,16 +82,16 @@ class TemplateChannelTest
 		}
 
 		@Override
-		public byte[] receiveChannelMessage(J message, int applicationId, String templateId, ViewRow row)
+		public byte[] receiveChannelMessage(J message, String templateId, ViewRow row)
 		{
-			received.add(applicationId + " " + templateId + " " + (row == null ? "-" : row.getLinkId()) + " " + message);
+			received.add(templateId + " " + (row == null ? "-" : row.getLinkId()) + " " + message);
 			return null;
 		}
 
 		@Override
-		public byte[] receiveChannelBinaryMessage(byte[] message, int applicationId, String templateId, ViewRow row)
+		public byte[] receiveChannelBinaryMessage(byte[] message, String templateId, ViewRow row)
 		{
-			received.add("binary " + applicationId + " " + templateId + " " + (row == null ? "-" : row.getLinkId()) + " " + message.length);
+			received.add("binary " + templateId + " " + (row == null ? "-" : row.getLinkId()) + " " + message.length);
 			return null;
 		}
 	}
@@ -118,6 +120,7 @@ class TemplateChannelTest
 		String id = session.instantiateByName(ChannelAM.class.getName());
 		ChannelAM a = (ChannelAM) session.getObject(Integer.parseInt(id));
 		a.setObjectId(Integer.parseInt(id));
+		a.setBridgeSession(session);
 		a.setFrontEndApplicationId(application);
 		a.setTopFrontEndApplicationId(1);
 		a.setDataSource("none");
@@ -213,12 +216,64 @@ class TemplateChannelTest
 		resolve(am.channel("chat")).receive(message);
 		resolve(am.channel(4, "card", second)).receive(message);
 		resolve(am.channel(4, "card", second)).receiveBinary(new byte[3]);
-		assertEquals(List.of("3 chat - " + message, "4 card 2 " + message, "binary 4 card 2 3"), am.received);
+		assertEquals(List.of("chat - " + message, "card 2 " + message, "binary card 2 3"), am.received);
 
 		ViewRow alert = am.getView("Alerts").newRow();
 		byte[] answer = resolve(am.channel(4, "warn", alert)).receive(message);
-		assertArrayEquals(("row 4 warn " + message).getBytes(StandardCharsets.UTF_8), answer, "a row that overrides the handler");
+		assertArrayEquals(("row warn " + message).getBytes(StandardCharsets.UTF_8), answer, "a row that overrides the handler");
 		assertEquals(3, am.received.size(), "and the AM does not see it");
+	}
+
+	/** Records what the AMs send over the top application's WebSocket. */
+	private static class PageSocket extends SessionSocket
+	{
+		final List<String> texts = new ArrayList<String>();
+		final List<byte[]> binaries = new ArrayList<byte[]>();
+
+		@Override
+		public void sendText(String text)
+		{
+			texts.add(text);
+		}
+
+		@Override
+		public void sendBytes(byte[] data)
+		{
+			binaries.add(data);
+		}
+	}
+
+	private static String custom(String channel, String message)
+	{
+		String m = "custom," + channel + "," + message;
+		return "1," + m.length() + "-" + m;
+	}
+
+	@Test
+	void anAmSendsToTemplatesOfItsOwnApplication()
+	{
+		PageSocket page = new PageSocket();
+		session.addSessionSocket(1, page);
+		ChannelAM parent = am(2);
+		ViewRow parentRow = ((Cards) parent.getView("Cards")).newRow();
+
+		am.channelMessage("hi", "chat");
+		am.channelMessage("hi", "card", second);
+		second.channelMessage("hi", "card");
+		am.channelMessage("hi", "child", parentRow);
+		parentRow.channelMessage("hi", "own");
+		assertEquals(List.of(
+			custom(am.channel("chat"), "hi"),
+			custom(am.channel(3, "card", second), "hi"),
+			custom(am.channel(3, "card", second), "hi"),
+			custom(am.channel(3, "child", parentRow), "hi"),
+			custom(parent.channel(2, "own", parentRow), "hi")), page.texts);
+
+		second.channelBinaryMessage(new byte[] {7, 8}, "card");
+		byte[] sent = page.binaries.get(0);
+		String header = new String(sent, 1, sent[0], StandardCharsets.UTF_8);
+		assertEquals(am.channel(3, "card", second), header);
+		assertArrayEquals(new byte[] {7, 8}, Arrays.copyOfRange(sent, 1 + sent[0], sent.length));
 	}
 
 	@Test

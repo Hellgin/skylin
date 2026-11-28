@@ -256,11 +256,12 @@ checked against the code in this repository.
   to the row, which passes messages to its own AM unless its class handles them. Replaced, with no compatibility
   layer:
   * Java: `receiveMessage(J)`, `receiveMessage(J, channel)`, `receiveBinaryMessage(bytes, channel)`, `customMessage`
-    and `customBinaryMessage` became `AM.receiveChannelMessage(J, applicationId, templateId, row)` and
-    `receiveChannelBinaryMessage`, `ViewRow.receiveChannelMessage(J, applicationId, templateId)` and
+    and `customBinaryMessage` became `AM.receiveChannelMessage(J, templateId, row)` and
+    `receiveChannelBinaryMessage`, `ViewRow.receiveChannelMessage(J, templateId)` and
     `receiveChannelBinaryMessage`, and for sending `AM.channelMessage(message, templateId)`,
-    `AM.channelMessage(message, applicationId, templateId, row)`, `ViewRow.channelMessage(message, applicationId,
-    templateId)` and the matching `channelBinaryMessage`s.
+    `AM.channelMessage(message, templateId, row)`, `ViewRow.channelMessage(message, templateId)` and the matching
+    `channelBinaryMessage`s. The application id is part of the channel but is not passed to these methods: an AM
+    sends with its own.
   * JavaScript: `registerToMessageChannel(amId, func, channel)`, `deregisterFromMessageChannel`,
     `deregisterAllFromMessageChannel`, `wsAmMessage(amId, message, channel)`, `wsAmBinaryMessage` and
     `messageAM(amId, message, channel)` became `registerChannel(channel, func)`, `deregisterChannel(channel)`,

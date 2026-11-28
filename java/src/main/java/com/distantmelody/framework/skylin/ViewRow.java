@@ -245,35 +245,34 @@ public class ViewRow implements SkylinBridgeVirtualMethods
 	}
 
 	/**
-	 * A message from the page of template {@code templateId} of application {@code applicationId}, which rendered on
-	 * this row. Passes it to the AM with this row; override it to handle the row's messages in the row. See
-	 * {@link AM#receiveChannelMessage}.
+	 * A message from the page of template {@code templateId}, which rendered on this row. Passes it to the AM with this
+	 * row; override it to handle the row's messages in the row. See {@link AM#receiveChannelMessage}.
 	 */
-	public byte[] receiveChannelMessage(J message, int applicationId, String templateId)
+	public byte[] receiveChannelMessage(J message, String templateId)
 	{
-		return getAM().receiveChannelMessage(message, applicationId, templateId, this);
+		return getAM().receiveChannelMessage(message, templateId, this);
 	}
 
 	/** A binary message from the page of a template on this row; see {@link #receiveChannelMessage}. */
-	public byte[] receiveChannelBinaryMessage(byte[] message, int applicationId, String templateId)
+	public byte[] receiveChannelBinaryMessage(byte[] message, String templateId)
 	{
-		return getAM().receiveChannelBinaryMessage(message, applicationId, templateId, this);
+		return getAM().receiveChannelBinaryMessage(message, templateId, this);
 	}
 
-	/** Sends a message to the page of template {@code templateId} of application {@code applicationId} on this row. */
-	public void channelMessage(J message, int applicationId, String templateId)
+	/** Sends a message to the page of template {@code templateId} on this row, a template of this row's AM's application. */
+	public void channelMessage(J message, String templateId)
 	{
-		getAM().channelMessage(message, applicationId, templateId, this);
+		getAM().channelMessage(message, templateId, this);
 	}
 
-	public void channelMessage(String message, int applicationId, String templateId)
+	public void channelMessage(String message, String templateId)
 	{
-		getAM().channelMessage(message, applicationId, templateId, this);
+		getAM().channelMessage(message, templateId, this);
 	}
 
-	public void channelBinaryMessage(byte[] message, int applicationId, String templateId)
+	public void channelBinaryMessage(byte[] message, String templateId)
 	{
-		getAM().channelBinaryMessage(message, applicationId, templateId, this);
+		getAM().channelBinaryMessage(message, templateId, this);
 	}
 	
 	public Object[] setValueFromFrontEnd(String name, Object value)

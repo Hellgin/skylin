@@ -268,9 +268,11 @@ function registered with `register()`, then forwards to the first AM.
   row and the row's AM on one; its id is its object id. The application id is the template's application, because
   template ids are unique only within one. The root view index is the position of the row's root view among its AM's
   views.
-* The server resolves a channel without a row to `AM.receiveChannelMessage(message, applicationId, templateId, null)`,
-  and one on a row to `ViewRow.receiveChannelMessage(message, applicationId, templateId)`, which passes it to the
-  row's AM unless the row class overrides it. It drops a channel that is malformed, or names an application without
+* The server resolves a channel without a row to `AM.receiveChannelMessage(message, templateId, null)`, and one on a
+  row to `ViewRow.receiveChannelMessage(message, templateId)`, which passes it to the row's AM unless the row class
+  overrides it. The handlers do not get the application id. An AM's `channelMessage` builds the channel with its own
+  application id; only the `<skylin_channel>` binding passes the template's application in, because on a row it
+  asks the row's AM. It drops a channel that is malformed, or names an application without
   a row that its AM does not belong to (logged as a warning, without the content), and a row that is gone (debug).
   A channel whose AM is not an AM of the session gets `FORCE_REFRESH`. These messages run outside the session lock.
 * A connection whose cookie names no session in this JVM is sent `FORCE_REFRESH` and closed. After a JVM restart that

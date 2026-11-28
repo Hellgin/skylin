@@ -173,7 +173,7 @@ class SocketServerLimitsTest
 		volatile byte[] binary;
 
 		@Override
-		public byte[] receiveChannelMessage(J in, int applicationId, String templateId, ViewRow row)
+		public byte[] receiveChannelMessage(J in, String templateId, ViewRow row)
 		{
 			this.message = in;
 			this.templateId = templateId;
@@ -183,7 +183,7 @@ class SocketServerLimitsTest
 		}
 
 		@Override
-		public byte[] receiveChannelBinaryMessage(byte[] message, int applicationId, String templateId, ViewRow row)
+		public byte[] receiveChannelBinaryMessage(byte[] message, String templateId, ViewRow row)
 		{
 			this.binary = message;
 			this.binaryTemplateId = templateId;

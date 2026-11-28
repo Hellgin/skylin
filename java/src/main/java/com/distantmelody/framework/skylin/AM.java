@@ -538,16 +538,16 @@ public class AM implements SkylinBridgeVirtualMethods
 	/**
 	 * A message from the page of a template ({@code wsChannelMessage} or {@code messageChannel}). It comes here from a
 	 * template of this AM's application that has no row ({@code row} is {@code null}), and from
-	 * {@link ViewRow#receiveChannelMessage} for a template on a row of this AM, of any application. The template is
-	 * {@code templateId} ({@code setId}, or the number it got when it was first rendered) of application
-	 * {@code applicationId}. Runs outside the session lock. What it returns goes back only to {@code messageChannel}.
+	 * {@link ViewRow#receiveChannelMessage} for a template on a row of this AM. The template is {@code templateId}
+	 * ({@code setId}, or the number it got when it was first rendered). Runs outside the session lock. What it returns
+	 * goes back only to {@code messageChannel}.
 	 */
-	public byte[] receiveChannelMessage(J message, int applicationId, String templateId, ViewRow row) {
+	public byte[] receiveChannelMessage(J message, String templateId, ViewRow row) {
 		return null;
 	}
 	
 	/** A binary message from a template's page ({@code wsChannelBinaryMessage}); see {@link #receiveChannelMessage}. */
-	public byte[] receiveChannelBinaryMessage(byte[] message, int applicationId, String templateId, ViewRow row) {
+	public byte[] receiveChannelBinaryMessage(byte[] message, String templateId, ViewRow row) {
 		return null;
 	}
 	
@@ -561,8 +561,10 @@ public class AM implements SkylinBridgeVirtualMethods
 	}
 	
 	/**
-	 * The channel of template {@code templateId} of application {@code applicationId}, rendered on {@code row}. On a
-	 * row the channel names the row's AM, whichever AM builds it; without one ({@code null}) it names this AM.
+	 * The channel of template {@code templateId} of application {@code applicationId}, rendered on {@code row}: what the
+	 * {@code <skylin_channel>} binding of a template on a row gives the page. The binding asks the row's AM, which need
+	 * not belong to the template's application, so the application is passed in. On a row the channel names the row's
+	 * AM, whichever AM builds it; without one ({@code null}) it names this AM.
 	 */
 	public String channel(int applicationId, String templateId, ViewRow row)
 	{
@@ -584,15 +586,18 @@ public class AM implements SkylinBridgeVirtualMethods
 		sendChannelText(channel(templateId), message);
 	}
 	
-	public void channelMessage(J message, int applicationId, String templateId, ViewRow row)
+	public void channelMessage(J message, String templateId, ViewRow row)
 	{
-		channelMessage(message.toString(), applicationId, templateId, row);
+		channelMessage(message.toString(), templateId, row);
 	}
 	
-	/** Sends a message to the page of template {@code templateId} of application {@code applicationId} on {@code row}. */
-	public void channelMessage(String message, int applicationId, String templateId, ViewRow row)
+	/**
+	 * Sends a message to the page of template {@code templateId} of this AM's application, rendered on {@code row} (a
+	 * row of any AM), or without a row when {@code row} is {@code null}.
+	 */
+	public void channelMessage(String message, String templateId, ViewRow row)
 	{
-		sendChannelText(channel(applicationId, templateId, row), message);
+		sendChannelText(channel(frontEndApplicationId, templateId, row), message);
 	}
 	
 	private void sendChannelText(String channel, String message)
@@ -607,9 +612,9 @@ public class AM implements SkylinBridgeVirtualMethods
 		sendChannelBinary(channel(templateId), message);
 	}
 	
-	public void channelBinaryMessage(byte[] message, int applicationId, String templateId, ViewRow row)
+	public void channelBinaryMessage(byte[] message, String templateId, ViewRow row)
 	{
-		sendChannelBinary(channel(applicationId, templateId, row), message);
+		sendChannelBinary(channel(frontEndApplicationId, templateId, row), message);
 	}
 	
 	private void sendChannelBinary(String channel, byte[] message)

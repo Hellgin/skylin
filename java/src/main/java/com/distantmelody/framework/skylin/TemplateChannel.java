@@ -45,16 +45,16 @@ public final class TemplateChannel
 		public byte[] receive(J message)
 		{
 			return row == null
-				? am.receiveChannelMessage(message, applicationId, templateId, null)
-				: row.receiveChannelMessage(message, applicationId, templateId);
+				? am.receiveChannelMessage(message, templateId, null)
+				: row.receiveChannelMessage(message, templateId);
 		}
 
 		/** Hands the binary message to the row's handler, or to the AM's when the template has no row. */
 		public byte[] receiveBinary(byte[] message)
 		{
 			return row == null
-				? am.receiveChannelBinaryMessage(message, applicationId, templateId, null)
-				: row.receiveChannelBinaryMessage(message, applicationId, templateId);
+				? am.receiveChannelBinaryMessage(message, templateId, null)
+				: row.receiveChannelBinaryMessage(message, templateId);
 		}
 	}
 

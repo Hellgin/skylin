@@ -895,7 +895,7 @@ $lines->add(new TextField('productName'));
 
   ```java
   @Override
-  public byte[] receiveChannelMessage(J message, int applicationId, String templateId, ViewRow row)
+  public byte[] receiveChannelMessage(J message, String templateId, ViewRow row)
   {
       // templateId: the template's setId, or its number; row: null here, or the row that passed the message on
       if (row == null) channelMessage(J.fromString("{\"ok\":true}"), templateId);
@@ -908,24 +908,26 @@ $lines->add(new TextField('productName'));
 
   ```java
   @Override
-  public byte[] receiveChannelMessage(J message, int applicationId, String templateId)
+  public byte[] receiveChannelMessage(J message, String templateId)
   {
-      channelMessage(J.fromString("{\"ok\":true}"), applicationId, templateId);
+      channelMessage(J.fromString("{\"ok\":true}"), templateId);
       return null;
   }
   ```
 
   * Give the template an id (`setId('board')`) when the AM has to tell templates apart. Without one it has the number
     it got when it first rendered, which is the same each time the application is created. With a channel the id may
-    only hold letters other than `x`, digits, `_` and `-` (up to 64). Ids are unique only within an application, so
-    the handlers also get the template's application id: templates of a child application can render on rows of the
-    parent's AM.
+    only hold letters other than `x`, digits, `_` and `-` (up to 64). Ids are unique only within an application; the
+    channel carries the template's application too, so templates of a child application on rows of the parent's AM
+    get their own channels. The handlers do not get it. When a parent's row has to tell a child application's
+    template from its own, give one of them an id with `setId`.
   * `receiveChannelMessage` and `receiveChannelBinaryMessage` run on the WebSocket thread, outside the session lock and
     outside any request, so they must not assume a request is running. `messageChannel(channel, message)` sends
     through `restless.php` instead, where `receiveChannelMessage`'s return value is the answer.
-  * Send to a template without a row from its AM, `channelMessage(message, templateId)`, and to a template on a row
-    from the row, `channelMessage(message, applicationId, templateId)`, or from any AM,
-    `channelMessage(message, applicationId, templateId, row)`. `channelBinaryMessage` takes the same arguments. They
+  * An AM sends to the templates of its own application. Send to a template without a row from its AM,
+    `channelMessage(message, templateId)`, and to a template on a row from the row, `channelMessage(message,
+    templateId)`, or from the template's AM, `channelMessage(message, templateId, row)`, which also reaches a template
+    on a row of another application's AM. A row sends as its own AM. `channelBinaryMessage` takes the same arguments. They
     go over the WebSocket only and are dropped when the page is not connected. A screen that must not lose messages
     confirms and resends them itself.
   * `registerChannel` replaces the channel's handler, so a template whose script runs again on every render does not

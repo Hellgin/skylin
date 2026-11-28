@@ -440,9 +440,9 @@ abstract class BridgeProtocolTestBase
 	static class RecordingAM extends AM
 	{
 		@Override
-		public byte[] receiveChannelMessage(J in, int applicationId, String templateId, ViewRow row)
+		public byte[] receiveChannelMessage(J in, String templateId, ViewRow row)
 		{
-			return ("got " + applicationId + " " + templateId + " " + in).getBytes(StandardCharsets.UTF_8);
+			return ("got " + templateId + " " + in).getBytes(StandardCharsets.UTF_8);
 		}
 	}
 
@@ -466,7 +466,7 @@ abstract class BridgeProtocolTestBase
 		BridgeSession.sessions.get(SESSION).objects.put(2, own);
 		try
 		{
-			assertTrue(messageAM("{\"channel\":\"2x1xchat\",\"message\":{\"a\":1}}").endsWith("got 1 chat {\"a\":1}"));
+			assertTrue(messageAM("{\"channel\":\"2x1xchat\",\"message\":{\"a\":1}}").endsWith("got chat {\"a\":1}"));
 			assertFalse(messageAM("{\"sessionId\":\"other-session\",\"channel\":\"5x1xchat\",\"message\":{}}").contains("got"), "sessionId in the body is ignored");
 			assertFalse(messageAM("{\"channel\":\"1x1xchat\",\"message\":{}}").contains("got"), "an object that is not an AM");
 			assertFalse(messageAM("{\"channel\":\"999x1xchat\",\"message\":{}}").contains("got"), "no such object");
